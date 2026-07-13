@@ -297,8 +297,8 @@ def token_exchange(source_id, target_id):
     source_token = source_reg.get("token_response", {}).get("body", {}).get("access_token")
     if not source_token:
         return render_template_string(EXCHANGE_TEMPLATE,
-            source=source_server, target=target_server,
-            source_id=source_id, target_id=target_id,
+            src=source_server, target=target_server,
+            src_id=source_id, target_id=target_id,
             error="No access token for source server. Connect to it first.")
 
     # Target must be registered (need its client_id as audience)
@@ -315,8 +315,8 @@ def token_exchange(source_id, target_id):
 
     if not token_endpoint:
         return render_template_string(EXCHANGE_TEMPLATE,
-            source=source_server, target=target_server,
-            source_id=source_id, target_id=target_id,
+            src=source_server, target=target_server,
+            src_id=source_id, target_id=target_id,
             error="Could not find token_endpoint in metadata")
 
     # Build RFC 8693 token exchange request
@@ -360,8 +360,8 @@ def token_exchange(source_id, target_id):
         exchanged_decoded = {}
 
     return render_template_string(EXCHANGE_TEMPLATE,
-        source=source_server, target=target_server,
-        source_id=source_id, target_id=target_id,
+        src=source_server, target=target_server,
+        src_id=source_id, target_id=target_id,
         exchange_result=exchange_result,
         exchanged_decoded=exchanged_decoded,
         error=None)
@@ -658,7 +658,7 @@ JSON_TEMPLATE = """<!DOCTYPE html>
 EXCHANGE_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>Token Exchange - {{ source.name }} &rarr; {{ target.name }}</title>
+    <title>Token Exchange - {{ src.name }} &rarr; {{ target.name }}</title>
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; max-width: 900px; }
         h1 { margin-bottom: 0.5rem; }
@@ -684,10 +684,10 @@ EXCHANGE_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
     <h1>RFC 8693 Token Exchange</h1>
-    <p class="subtitle">{{ source.icon }} {{ source.name }} &rarr; {{ target.icon }} {{ target.name }}</p>
+    <p class="subtitle">{{ src.icon }} {{ src.name }} &rarr; {{ target.icon }} {{ target.name }}</p>
 
     <div class="flow">
-        <span class="flow-item flow-source">{{ source.icon }} {{ source.name }}</span>
+        <span class="flow-item flow-source">{{ src.icon }} {{ src.name }}</span>
         <span class="flow-arrow">&rarr;</span>
         <span class="flow-item flow-scope">read:calendar</span>
         <span class="flow-arrow">&rarr;</span>
