@@ -174,6 +174,20 @@ def save_config(server_id):
     return redirect("/config")
 
 
+@app.route("/clear", methods=["POST"])
+def clear_all():
+    """Clear all registrations and tokens."""
+    registrations.clear()
+    return redirect("/")
+
+
+@app.route("/clear/<server_id>", methods=["POST"])
+def clear_server(server_id):
+    """Clear registration and tokens for a single server."""
+    registrations.pop(server_id, None)
+    return redirect("/")
+
+
 @app.route("/connect/<server_id>", methods=["POST"])
 def connect(server_id):
     """Single-click: DCR register (if needed) then redirect to Duo for auth."""
@@ -482,6 +496,11 @@ TEMPLATE = """<!DOCTYPE html>
                 <a href="/metadata/{{ id }}?source=oauth">{{ server.icon }} Metadata</a>
             {% endif %}
         {% endfor %}
+        {% if registrations %}
+            <form method="POST" action="/clear" style="display:inline; margin-left: auto;">
+                <button style="background:none; border:none; color:#da3633; cursor:pointer; font-size:0.85rem;">Clear All Sessions</button>
+            </form>
+        {% endif %}
     </div>
     <div class="grid">
     {% for id, server in servers.items() %}
@@ -532,6 +551,12 @@ Content-Type: application/json
             </div>
             {% if id in registrations %}
                 {% set reg = registrations[id] %}
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.75rem;">
+                    <span style="font-size:0.75rem; color:#8b949e;">client_id: {{ reg.get('response', {}).get('client_id', 'pending')[:12] }}...</span>
+                    <form method="POST" action="/clear/{{ id }}" style="display:inline;">
+                        <button style="background:none; border:none; color:#da3633; cursor:pointer; font-size:0.75rem;">Clear</button>
+                    </form>
+                </div>
                 {% if reg.get('response', {}).get('client_id') %}
                     <div class="status status-success">{{ reg | tojson }}</div>
                 {% elif reg.get('error') %}

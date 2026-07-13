@@ -56,13 +56,15 @@ async def discover_duo_endpoints() -> str:
 
 
 @mcp.tool()
-async def register_client(redirect_uri: str = "http://localhost:8080/callback") -> str:
+async def register_client(redirect_uri: str = "http://localhost:3000/callback") -> str:
     """
     Perform Dynamic Client Registration (RFC 7591) against Duo SSO.
     Registers this MCP server as a public OAuth client with PKCE support.
+    Uses a DIFFERENT redirect_uri than the web app (port 3000 vs 8080) so
+    registrations don't collide.
 
     Args:
-        redirect_uri: The redirect URI for this client (default: http://localhost:8080/callback)
+        redirect_uri: The redirect URI for this client (default: http://localhost:3000/callback)
     """
     global _registration, _discovery
 
@@ -76,7 +78,7 @@ async def register_client(redirect_uri: str = "http://localhost:8080/callback") 
     reg_endpoint = _discovery.get("registration_endpoint", f"{DUO_SSO_ISSUER.rstrip('/')}/register")
 
     payload = {
-        "client_name": identity["name"],
+        "client_name": f"{identity['name']} (MCP)",
         "redirect_uris": [redirect_uri],
         "grant_types": ["authorization_code"],
         "response_types": ["code"],
@@ -151,6 +153,15 @@ def generate_auth_url() -> str:
 
 
 @mcp.tool()
+def reset_registration() -> str:
+    """Clear the current DCR registration so you can register fresh."""
+    global _registration, _discovery
+    _registration = None
+    _discovery = None
+    return json.dumps({"status": "cleared", "server": identity["name"]})
+
+
+@mcp.tool()
 def server_info() -> str:
     """Return info about this MCP server's identity and configuration."""
     return json.dumps({
@@ -159,6 +170,7 @@ def server_info() -> str:
         "description": identity["description"],
         "duo_issuer": DUO_SSO_ISSUER,
         "registered": _registration is not None,
+        "client_id": _registration.get("client_id") if _registration else None,
     }, indent=2)
 
 
