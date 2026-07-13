@@ -163,7 +163,8 @@ def dashboard():
 
 @app.route("/config")
 def config_page():
-    return render_template_string(CONFIG_TEMPLATE, servers=SERVERS)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return render_template_string(CONFIG_TEMPLATE, servers=SERVERS, script_dir=script_dir)
 
 
 @app.route("/config/<server_id>", methods=["POST"])
@@ -442,6 +443,10 @@ CONFIG_TEMPLATE = """<!DOCTYPE html>
                     <div class="derived-url">.well-known/oauth-authorization-server</div>
                     <div class="derived-url">.well-known/openid-configuration</div>
                     <div class="derived-url">/register</div>
+                </div>
+                <div class="derived" style="margin-top: 0.5rem;">
+                    <div class="derived-label">Register with Claude Code:</div>
+                    <pre style="background:#0d1117; color:#7ee787; font-size:0.65rem; padding:0.5rem; border-radius:4px; margin:0; overflow-x:auto; white-space:pre-wrap; word-break:break-all;">claude mcp add dcr-{{ id }} -e DUO_SSO_ISSUER="{{ server.issuer }}" -- {{ script_dir }}/.venv/bin/python3 {{ script_dir }}/mcp_server.py --server {{ id }}</pre>
                 </div>
             {% endif %}
         </div>
