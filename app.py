@@ -257,6 +257,9 @@ def callback(server_id):
                 except ValueError:
                     token_response["body_raw"] = resp.text
 
+                # Store token response for use in token exchange
+                registrations[server_id]["token_response"] = token_response
+
                 # Decode JWTs (without verification — just for display)
                 body = token_response.get("body", {})
                 for key in ("access_token", "id_token"):
@@ -273,6 +276,95 @@ def callback(server_id):
         params=dict(request.args),
         token_response=token_response,
         decoded_tokens=decoded_tokens)
+
+
+@app.route("/token-exchange/<source_id>/<target_id>", methods=["POST"])
+def token_exchange(source_id, target_id):
+    """
+    RFC 8693 Token Exchange: source MCP server exchanges its access token
+    for a new token scoped to the target MCP server.
+    e.g., Documents exchanges its token for read:calendar on Calendar.
+    """
+    if source_id not in SERVERS or target_id not in SERVERS:
+        return "Unknown server", 404
+
+    source_server = SERVERS[source_id]
+    target_server = SERVERS[target_id]
+    source_reg = registrations.get(source_id, {})
+    target_reg = registrations.get(target_id, {})
+
+    # Need an access token from the source
+    source_token = source_reg.get("token_response", {}).get("body", {}).get("access_token")
+    if not source_token:
+        return render_template_string(EXCHANGE_TEMPLATE,
+            source=source_server, target=target_server,
+            source_id=source_id, target_id=target_id,
+            error="No access token for source server. Connect to it first.")
+
+    # Target must be registered (need its client_id as audience)
+    target_client_id = target_reg.get("response", {}).get("client_id", "")
+
+    # Source needs client credentials for the exchange (confidential client)
+    source_client_id = source_reg.get("response", {}).get("client_id", "")
+    source_client_secret = source_reg.get("response", {}).get("client_secret", "")
+
+    # Use source server's token endpoint
+    endpoints = derive_endpoints(source_server["issuer"])
+    metadata = fetch_metadata(endpoints["oauth_metadata_url"])
+    token_endpoint = metadata.get("token_endpoint", "")
+
+    if not token_endpoint:
+        return render_template_string(EXCHANGE_TEMPLATE,
+            source=source_server, target=target_server,
+            source_id=source_id, target_id=target_id,
+            error="Could not find token_endpoint in metadata")
+
+    # Build RFC 8693 token exchange request
+    exchange_data = {
+        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+        "subject_token": source_token,
+        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "scope": "read:calendar",
+        "client_id": source_client_id,
+    }
+
+    # Set audience to target's client_id if available
+    if target_client_id:
+        exchange_data["audience"] = target_client_id
+
+    # Add client secret if we have one (confidential client)
+    if source_client_secret:
+        exchange_data["client_secret"] = source_client_secret
+
+    exchange_result = {
+        "endpoint": token_endpoint,
+        "request": exchange_data.copy(),
+    }
+
+    try:
+        resp = requests.post(token_endpoint, data=exchange_data, timeout=15)
+        exchange_result["status_code"] = resp.status_code
+        try:
+            exchange_result["response"] = resp.json()
+        except ValueError:
+            exchange_result["response_raw"] = resp.text
+
+        # Decode the exchanged token
+        exchanged_decoded = {}
+        body = exchange_result.get("response", {})
+        if body.get("access_token") and "." in body["access_token"]:
+            exchanged_decoded["access_token"] = decode_jwt_unverified(body["access_token"])
+    except Exception as e:
+        exchange_result["error"] = str(e)
+        exchanged_decoded = {}
+
+    return render_template_string(EXCHANGE_TEMPLATE,
+        source=source_server, target=target_server,
+        source_id=source_id, target_id=target_id,
+        exchange_result=exchange_result,
+        exchanged_decoded=exchanged_decoded,
+        error=None)
 
 
 @app.route("/metadata/<server_id>")
@@ -429,6 +521,11 @@ Content-Type: application/json
                             <button class="btn btn-primary" type="submit">Connect</button>
                         {% endif %}
                     </form>
+                    {% if id == 'documents' and id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
+                        <form method="POST" action="/token-exchange/documents/calendar" style="display:inline">
+                            <button class="btn" style="background:#a371f7; color:white;" type="submit">Exchange &rarr; Calendar</button>
+                        </form>
+                    {% endif %}
                 {% else %}
                     <span class="btn btn-disabled">Connect</span>
                 {% endif %}
@@ -520,6 +617,18 @@ CALLBACK_TEMPLATE = """<!DOCTYPE html>
             <h2>Raw token response</h2>
             <pre>{{ token_response.body | tojson(indent=2) }}</pre>
         {% endif %}
+        {% if server_id == 'documents' and token_response and token_response.get('body', {}).get('access_token') %}
+            <div style="margin-top: 1.5rem; padding: 1rem; background: #161b22; border: 1px solid #a371f7; border-radius: 6px;">
+                <div style="font-weight: 600; margin-bottom: 0.5rem; color: #a371f7;">RFC 8693 Token Exchange</div>
+                <p style="font-size: 0.85rem; color: #8b949e; margin-bottom: 0.75rem;">
+                    Exchange this access token for a <code>read:calendar</code> scoped token from the Calendar MCP Server.
+                </p>
+                <form method="POST" action="/token-exchange/documents/calendar" style="display:inline">
+                    <button style="padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; background: #a371f7; color: white;">Exchange Token &rarr; Calendar</button>
+                </form>
+            </div>
+        {% endif %}
+
     {% elif error %}
         <p class="error">Connection failed: {{ error }}</p>
         <pre>{{ params | tojson(indent=2) }}</pre>
@@ -542,6 +651,89 @@ JSON_TEMPLATE = """<!DOCTYPE html>
     <h2>{{ title }}</h2>
     <pre>{{ data | tojson(indent=2) }}</pre>
     <p style="margin-top: 1rem;"><a href="/">&larr; Back</a></p>
+</body>
+</html>"""
+
+
+EXCHANGE_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Token Exchange - {{ source.name }} &rarr; {{ target.name }}</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; max-width: 900px; }
+        h1 { margin-bottom: 0.5rem; }
+        .subtitle { color: #a371f7; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        h2 { font-size: 1rem; color: #8b949e; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
+        a { color: #58a6ff; }
+        .error { color: #da3633; font-size: 1rem; margin-bottom: 1rem; }
+        .success { color: #3fb950; }
+        .step { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
+        .step-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .step-detail { font-family: monospace; font-size: 0.8rem; color: #8b949e; word-break: break-all; }
+        .step-ok { border-left: 3px solid #a371f7; }
+        .step-fail { border-left: 3px solid #da3633; }
+        .token-label { font-size: 0.85rem; font-weight: 600; color: #a371f7; margin-bottom: 0.25rem; }
+        .flow { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; padding: 1rem; background: #161b22; border-radius: 6px; }
+        .flow-item { padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; }
+        .flow-source { background: #238636; color: white; }
+        .flow-arrow { color: #8b949e; font-size: 1.2rem; }
+        .flow-target { background: #1f6feb; color: white; }
+        .flow-scope { background: #a371f7; color: white; font-family: monospace; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <h1>RFC 8693 Token Exchange</h1>
+    <p class="subtitle">{{ source.icon }} {{ source.name }} &rarr; {{ target.icon }} {{ target.name }}</p>
+
+    <div class="flow">
+        <span class="flow-item flow-source">{{ source.icon }} {{ source.name }}</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-item flow-scope">read:calendar</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-item flow-target">{{ target.icon }} {{ target.name }}</span>
+    </div>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% elif exchange_result %}
+        <div class="step step-ok">
+            <div class="step-title">Token Exchange Request</div>
+            <div class="step-detail">POST {{ exchange_result.endpoint }}</div>
+        </div>
+
+        <h2>Request payload</h2>
+        <pre>{{ exchange_result.request | tojson(indent=2) }}</pre>
+
+        {% if exchange_result.get('status_code') %}
+            {% if exchange_result.get('response', {}).get('access_token') %}
+                <div class="step step-ok">
+                    <div class="step-title">Exchange successful ({{ exchange_result.status_code }})</div>
+                    <div class="step-detail">Got new access_token scoped to {{ target.name }}</div>
+                </div>
+            {% else %}
+                <div class="step step-fail">
+                    <div class="step-title">Exchange returned {{ exchange_result.status_code }}</div>
+                    <div class="step-detail">{{ exchange_result.get('response', exchange_result.get('response_raw', '')) | tojson }}</div>
+                </div>
+            {% endif %}
+
+            {% if exchange_result.get('response') %}
+                <h2>Response</h2>
+                <pre>{{ exchange_result.response | tojson(indent=2) }}</pre>
+            {% endif %}
+        {% endif %}
+
+        {% if exchanged_decoded and exchanged_decoded.get('access_token') %}
+            <h2>Exchanged access_token (decoded)</h2>
+            <div class="token-label">Header</div>
+            <pre>{{ exchanged_decoded.access_token.header | tojson(indent=2) }}</pre>
+            <div class="token-label">Payload</div>
+            <pre>{{ exchanged_decoded.access_token.payload | tojson(indent=2) }}</pre>
+        {% endif %}
+    {% endif %}
+
+    <p style="margin-top: 1.5rem;"><a href="/">&larr; Back to Dashboard</a></p>
 </body>
 </html>"""
 
