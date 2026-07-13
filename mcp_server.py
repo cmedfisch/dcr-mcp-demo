@@ -17,7 +17,11 @@ import secrets
 import hashlib
 import base64
 import argparse
-from urllib.parse import urlencode
+import asyncio
+import threading
+import webbrowser
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlencode, urlparse, parse_qs
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -111,45 +115,174 @@ def get_registration() -> str:
     return json.dumps({"server": identity["name"], "registration": _registration}, indent=2)
 
 
+_tokens: dict | None = None
+_auth_callback_result: dict | None = None
+
+
+class _CallbackHandler(BaseHTTPRequestHandler):
+    """Handles the OAuth callback on localhost."""
+
+    def do_GET(self):
+        global _auth_callback_result
+        parsed = urlparse(self.path)
+        if parsed.path == "/callback":
+            params = parse_qs(parsed.query)
+            _auth_callback_result = {k: v[0] if len(v) == 1 else v for k, v in params.items()}
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"""<html><body style="font-family:system-ui;background:#0f1117;color:#e1e4e8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+            <div style="text-align:center;"><h1 style="color:#3fb950;">Authenticated!</h1><p>You can close this tab and return to Claude Code.</p></div>
+            </body></html>""")
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *a):
+        pass
+
+
 @mcp.tool()
-def generate_auth_url() -> str:
+async def authenticate() -> str:
     """
-    Generate an authorization URL with PKCE for testing the OAuth flow
-    after DCR registration. Returns the URL and the PKCE verifier.
+    Full OAuth flow: DCR register (if needed), open browser for Duo auth,
+    catch the callback, exchange code for tokens, and return decoded JWT.
+    This is the one-shot tool to authenticate this MCP server with Duo SSO.
     """
-    if not _registration:
-        return json.dumps({"error": "No registration. Run register_client first."})
+    global _registration, _discovery, _tokens, _auth_callback_result
+
+    # Step 1: Discover
     if not _discovery:
-        return json.dumps({"error": "No discovery. Run discover_duo_endpoints first."})
+        url = f"{DUO_SSO_ISSUER.rstrip('/')}/.well-known/openid-configuration"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=10)
+            _discovery = resp.json()
+
+    # Step 2: Register via DCR if needed
+    if not _registration:
+        reg_endpoint = _discovery.get("registration_endpoint", f"{DUO_SSO_ISSUER.rstrip('/')}/register")
+        payload = {
+            "client_name": f"{identity['name']} (MCP)",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+            "application_type": "web",
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(reg_endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
+            if resp.status_code in (200, 201):
+                _registration = resp.json()
+            else:
+                return json.dumps({"error": "DCR failed", "status": resp.status_code, "body": resp.text})
 
     client_id = _registration.get("client_id")
     if not client_id:
         return json.dumps({"error": "Registration has no client_id"})
 
+    # Step 3: Generate PKCE and auth URL
     verifier = secrets.token_urlsafe(43)
     challenge = base64.urlsafe_b64encode(
         hashlib.sha256(verifier.encode()).digest()
     ).rstrip(b"=").decode()
 
     auth_endpoint = _discovery.get("authorization_endpoint", f"{DUO_SSO_ISSUER}/authorize")
-    redirect_uri = _registration.get("redirect_uris", ["http://localhost:8080/callback"])[0]
+    state = secrets.token_urlsafe(16)
 
     params = {
         "response_type": "code",
         "client_id": client_id,
-        "redirect_uri": redirect_uri,
+        "redirect_uri": "http://localhost:3000/callback",
         "scope": "openid email profile",
         "code_challenge": challenge,
         "code_challenge_method": "S256",
-        "state": secrets.token_urlsafe(16),
+        "state": state,
+    }
+    auth_url = f"{auth_endpoint}?{urlencode(params)}"
+
+    # Step 4: Start local callback server and open browser
+    _auth_callback_result = None
+    server = HTTPServer(("127.0.0.1", 3000), _CallbackHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    webbrowser.open(auth_url)
+
+    # Step 5: Wait for callback (up to 120 seconds)
+    for _ in range(240):
+        if _auth_callback_result is not None:
+            break
+        await asyncio.sleep(0.5)
+
+    server.shutdown()
+
+    if _auth_callback_result is None:
+        return json.dumps({"error": "Timed out waiting for authentication callback (120s)"})
+
+    if "error" in _auth_callback_result:
+        return json.dumps({"error": "Auth failed", "details": _auth_callback_result})
+
+    code = _auth_callback_result.get("code")
+    if not code:
+        return json.dumps({"error": "No authorization code in callback", "params": _auth_callback_result})
+
+    # Step 6: Exchange code for tokens
+    token_endpoint = _discovery.get("token_endpoint", "")
+    if not token_endpoint:
+        return json.dumps({"error": "No token_endpoint in discovery", "code": code})
+
+    token_data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": "http://localhost:3000/callback",
+        "code_verifier": verifier,
+        "client_id": client_id,
+    }
+    client_secret = _registration.get("client_secret")
+    if client_secret:
+        token_data["client_secret"] = client_secret
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(token_endpoint, data=token_data, timeout=15)
+
+    if resp.status_code != 200:
+        return json.dumps({"error": "Token exchange failed", "status": resp.status_code, "body": resp.text})
+
+    _tokens = resp.json()
+
+    # Step 7: Decode tokens for display
+    def decode_jwt(token):
+        parts = token.split(".")
+        if len(parts) < 2:
+            return {"error": "Not a JWT"}
+        def pad(s): return s + "=" * (4 - len(s) % 4)
+        try:
+            header = json.loads(base64.urlsafe_b64decode(pad(parts[0])))
+            payload = json.loads(base64.urlsafe_b64decode(pad(parts[1])))
+            return {"header": header, "payload": payload}
+        except Exception as e:
+            return {"error": str(e)}
+
+    result = {
+        "status": "authenticated",
+        "server": identity["name"],
+        "client_id": client_id,
     }
 
-    url = f"{auth_endpoint}?{urlencode(params)}"
-    return json.dumps({
-        "authorization_url": url,
-        "pkce_verifier": verifier,
-        "note": "Open this URL in a browser to test the auth flow",
-    }, indent=2)
+    if _tokens.get("access_token"):
+        result["access_token_decoded"] = decode_jwt(_tokens["access_token"])
+    if _tokens.get("id_token"):
+        result["id_token_decoded"] = decode_jwt(_tokens["id_token"])
+
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def get_tokens() -> str:
+    """Return the current access/id tokens if authenticated, or indicate no tokens."""
+    if not _tokens:
+        return json.dumps({"status": "not_authenticated", "server": identity["name"]})
+    return json.dumps({"server": identity["name"], "tokens": _tokens}, indent=2)
 
 
 # =============================================================================
@@ -330,10 +463,11 @@ elif args.server == "analytics":
 
 @mcp.tool()
 def reset_registration() -> str:
-    """Clear the current DCR registration so you can register fresh."""
-    global _registration, _discovery
+    """Clear the current DCR registration and tokens so you can start fresh."""
+    global _registration, _discovery, _tokens
     _registration = None
     _discovery = None
+    _tokens = None
     return json.dumps({"status": "cleared", "server": identity["name"]})
 
 

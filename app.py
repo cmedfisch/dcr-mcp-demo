@@ -490,7 +490,6 @@ TEMPLATE = """<!DOCTYPE html>
         .dcr-json { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem; font-size: 0.75rem; color: #7ee787; white-space: pre; overflow-x: auto; margin: 0; }
         .nav { margin-bottom: 1rem; display: flex; gap: 1.5rem; }
         .nav a { color: #58a6ff; font-size: 0.85rem; text-decoration: none; }
-        .agent-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 0.75rem 0; }
         .agent-section { border: 1px solid #30363d; border-radius: 6px; overflow: hidden; }
         .agent-header { padding: 0.4rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .agent-header.chatbot { background: #1f6feb; color: white; }
@@ -500,9 +499,6 @@ TEMPLATE = """<!DOCTYPE html>
         .agent-detail { font-size: 0.7rem; color: #c9d1d9; margin-bottom: 0.25rem; }
         .agent-detail code { background: #161b22; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.65rem; }
         .claude-cmd { background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 0.5rem; font-size: 0.6rem; color: #7ee787; white-space: pre-wrap; word-break: break-all; margin: 0.25rem 0 0 0; }
-        .setup-note { margin-top: 2rem; padding: 1.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
-        .setup-note h3 { font-size: 1rem; margin-bottom: 0.5rem; }
-        .setup-note p { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.75rem; }
     </style>
 </head>
 <body>
@@ -536,37 +532,25 @@ TEMPLATE = """<!DOCTYPE html>
             </div>
 
             {% if server.issuer %}
-            <div class="agent-tabs">
-                <div class="agent-section">
-                    <div class="agent-header chatbot">ChatBot Agent</div>
-                    <div class="agent-body">
-                        <div class="agent-note">Browser-based. This web app acts as the agent, registers via DCR, and bounces you to Duo.</div>
-                        <div class="agent-detail"><strong>Redirect URI:</strong> <code>{{ base_url }}/callback/{{ id }}</code></div>
-                        <div class="agent-detail"><strong>client_name:</strong> <code>{{ server.name }}</code></div>
-                        <div class="actions" style="margin-top:0.5rem;">
-                            <form method="POST" action="/connect/{{ id }}" style="display:inline">
-                                {% if id in registrations and registrations[id].get('response', {}).get('client_id') %}
-                                    <button class="btn btn-secondary" type="submit">Reconnect</button>
-                                {% else %}
-                                    <button class="btn btn-primary" type="submit">Connect</button>
-                                {% endif %}
-                            </form>
-                            {% if id == 'documents' and id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
-                                <form method="POST" action="/token-exchange/documents/calendar" style="display:inline">
-                                    <button class="btn" style="background:#a371f7; color:white;" type="submit">Exchange &rarr; Calendar</button>
-                                </form>
+            <div class="agent-section" style="margin: 0.75rem 0;">
+                <div class="agent-header chatbot">ChatBot Agent</div>
+                <div class="agent-body">
+                    <div class="agent-note">Browser-based. This web app acts as the agent, registers via DCR, and bounces you to Duo.</div>
+                    <div class="agent-detail"><strong>Redirect URI:</strong> <code>{{ base_url }}/callback/{{ id }}</code></div>
+                    <div class="agent-detail"><strong>client_name:</strong> <code>{{ server.name }}</code></div>
+                    <div class="actions" style="margin-top:0.5rem;">
+                        <form method="POST" action="/connect/{{ id }}" style="display:inline">
+                            {% if id in registrations and registrations[id].get('response', {}).get('client_id') %}
+                                <button class="btn btn-secondary" type="submit">Reconnect</button>
+                            {% else %}
+                                <button class="btn btn-primary" type="submit">Connect</button>
                             {% endif %}
-                        </div>
-                    </div>
-                </div>
-                <div class="agent-section">
-                    <div class="agent-header claude">Claude Code Agent</div>
-                    <div class="agent-body">
-                        <div class="agent-note">Runs as a local MCP server via stdio. Claude calls tools directly.</div>
-                        <div class="agent-detail"><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></div>
-                        <div class="agent-detail"><strong>client_name:</strong> <code>{{ server.name }} (MCP)</code></div>
-                        <div class="agent-detail" style="margin-top:0.5rem;"><strong>Add to Claude Code:</strong></div>
-                        <pre class="claude-cmd">claude mcp add dcr-{{ id }} -e DUO_SSO_ISSUER="{{ server.issuer }}" -- {{ script_dir }}/.venv/bin/python3 {{ script_dir }}/mcp_server.py --server {{ id }}</pre>
+                        </form>
+                        {% if id == 'documents' and id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
+                            <form method="POST" action="/token-exchange/documents/calendar" style="display:inline">
+                                <button class="btn" style="background:#a371f7; color:white;" type="submit">Exchange &rarr; Calendar</button>
+                            </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -584,6 +568,17 @@ Content-Type: application/json
   "token_endpoint_auth_method": "none",
   "application_type": "web"
 }</pre>
+            </div>
+
+            <div class="agent-section" style="margin: 0.75rem 0;">
+                <div class="agent-header claude">Claude Code Agent</div>
+                <div class="agent-body">
+                    <div class="agent-note">Runs as a local MCP server via stdio. Claude calls tools directly.</div>
+                    <div class="agent-detail"><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></div>
+                    <div class="agent-detail"><strong>client_name:</strong> <code>{{ server.name }} (MCP)</code></div>
+                    <div class="agent-detail" style="margin-top:0.5rem;"><strong>Add to Claude Code:</strong></div>
+                    <pre class="claude-cmd">claude mcp add dcr-{{ id }} -e DUO_SSO_ISSUER="{{ server.issuer }}" -- {{ script_dir }}/.venv/bin/python3 {{ script_dir }}/mcp_server.py --server {{ id }}</pre>
+                </div>
             </div>
             {% else %}
             <div class="actions">
@@ -611,18 +606,6 @@ Content-Type: application/json
     {% endfor %}
     </div>
 
-    <div class="setup-note">
-        <h3>Duo Admin Setup &mdash; Required Redirect URIs</h3>
-        <p>Add these to your Duo SSO OAuth Server application's allowed redirect URIs:</p>
-        <pre class="dcr-json" style="color:#e1e4e8;">
-# ChatBot Agent (this web app)
-http://localhost:8080/callback/calendar
-http://localhost:8080/callback/documents
-http://localhost:8080/callback/analytics
-
-# Claude Code Agent (MCP servers)
-http://localhost:3000/callback</pre>
-    </div>
 </body>
 </html>"""
 
