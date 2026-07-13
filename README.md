@@ -77,6 +77,12 @@ MCP Server                          Duo SSO
     |<-- {access_token, id_token} -----|
 ```
 
+## How Duo matches agents via DCR
+
+The `client_name` in the DCR registration payload is what Duo uses to identify and bind the agent. In the Duo Admin Panel, admins configure **DCR matching rules** — either EXACT or PARTIAL string matches against the `client_name`. When an MCP server registers with a `client_name` like `"Calendar MCP Server"`, Duo matches it against these rules to determine which Agent Class it belongs to, which controls the permissions and policies applied to that agent.
+
+This means the `client_name` you send in the DCR request is effectively the **agent's identity string** — it's how Duo knows what this thing is and what it's allowed to do.
+
 ## Files
 
 - `app.py` — Web dashboard (Flask). Configure, register, and authenticate.
