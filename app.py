@@ -58,6 +58,8 @@ SERVERS = {
         "name": "Calendar MCP Server",
         "description": "Manages calendar events and scheduling",
         "scopes": ["openid", "email", "profile"],
+        "resource_uri": "http://localhost:3001/",
+        "redirect_uri": "http://localhost:8080/callback/calendar",
         "icon": "\U0001f4c5",
         "mcp_port": 3001,
         "issuer": "",
@@ -66,6 +68,8 @@ SERVERS = {
         "name": "Documents MCP Server",
         "description": "File storage and document management",
         "scopes": ["openid", "email", "profile"],
+        "resource_uri": "http://localhost:3002/",
+        "redirect_uri": "http://localhost:8080/callback/documents",
         "icon": "\U0001f4c4",
         "mcp_port": 3002,
         "issuer": "",
@@ -74,6 +78,8 @@ SERVERS = {
         "name": "Analytics MCP Server",
         "description": "Usage metrics and reporting dashboard",
         "scopes": ["openid", "email", "profile"],
+        "resource_uri": "http://localhost:3003/",
+        "redirect_uri": "http://localhost:8080/callback/analytics",
         "icon": "\U0001f4ca",
         "mcp_port": 3003,
         "issuer": "",
@@ -455,9 +461,11 @@ CONFIG_TEMPLATE = """<!DOCTYPE html>
         <div class="setting-card">
             <h3>{{ server.icon }} {{ server.name }}</h3>
             <div class="meta">
-                Endpoint: <code>http://localhost:{{ server.mcp_port }}/mcp</code>
+                MCP Endpoint: <code>http://localhost:{{ server.mcp_port }}/mcp</code>
                 &nbsp;&bull;&nbsp;
-                Resource: <code>http://localhost:{{ server.mcp_port }}/</code>
+                Resource URI: <code>{{ server.resource_uri }}</code>
+                &nbsp;&bull;&nbsp;
+                Scopes: <code>{{ server.scopes | join(' ') }}</code>
             </div>
             <form method="POST" action="/config/{{ id }}">
                 <label>Duo SSO Issuer URL</label>
@@ -466,22 +474,30 @@ CONFIG_TEMPLATE = """<!DOCTYPE html>
             </form>
             {% if server.issuer %}
             <div class="info-block">
-                <div class="info-label">Derived Endpoints</div>
-                <div class="info-row">OAuth Metadata: /.well-known/oauth-authorization-server/...</div>
-                <div class="info-row">OIDC: {{ server.issuer }}/.well-known/openid-configuration</div>
-                <div class="info-row">DCR: {{ server.issuer }}/register</div>
+                <div class="info-label">Derived Endpoints (from issuer)</div>
+                <div class="info-row">OAuth Metadata: {{ server.issuer | replace(server.issuer.split('/')[-1], '') }}../../.well-known/oauth-authorization-server{{ server.issuer | replace(server.issuer.split('://')[0] + '://' + server.issuer.split('/')[2], '') }}</div>
+                <div class="info-row">OIDC Discovery: {{ server.issuer }}/.well-known/openid-configuration</div>
+                <div class="info-row">DCR Registration: {{ server.issuer }}/register</div>
+                <div class="info-row">Token Endpoint: {{ server.issuer }}/token</div>
+                <div class="info-row">Authorize: {{ server.issuer }}/authorize</div>
             </div>
             <div class="info-block">
-                <div class="info-label">Protected Resource Metadata (RFC 9728)</div>
+                <div class="info-label">Protected Resource Metadata (RFC 9728) &mdash; {{ server.name }}</div>
                 <div class="info-row">http://localhost:{{ server.mcp_port }}/.well-known/oauth-protected-resource</div>
+                <div class="info-row" style="color:#049fd9;">Resource URI: {{ server.resource_uri }}</div>
+            </div>
+            <div class="info-block">
+                <div class="info-label">Required Scopes for {{ server.name }}</div>
+                <div class="info-row">{{ server.scopes | join(' ') }}</div>
+                <div class="info-row" style="color:#5a6872; font-style:italic; font-family:inherit;">Both chatbot portal and Claude Code request these scopes during authorization</div>
             </div>
             <div class="redirect-block">
-                <h4>Required Redirect URIs (Duo Admin Panel)</h4>
+                <h4>Required Redirect URIs for {{ server.name }} (Duo Admin Panel)</h4>
                 <code>http://localhost:8080/callback/{{ id }}</code>
-                <div class="note">Chatbot portal callback</div>
+                <div class="note">Chatbot portal redirect for {{ server.name }} (port {{ server.mcp_port }})</div>
                 <code>http://127.0.0.1/callback</code>
                 <code>http://localhost/callback</code>
-                <div class="note">Claude Code / MCP SDK callbacks</div>
+                <div class="note">Claude Code / MCP SDK redirect (shared across all servers)</div>
             </div>
             {% endif %}
         </div>
@@ -661,21 +677,34 @@ claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
             <div class="msg bot">
                 <div class="msg-label">Agent Portal</div>
                 <div class="msg-bubble">
-                    <strong>Duo Admin: Required Redirect URIs</strong>
+                    <strong>Duo Admin: Redirect URIs, Resource URIs &amp; Scopes</strong>
                     <div class="info-section">
-                        <h4>Chatbot Portal</h4>
-                        <pre>http://localhost:8080/callback/calendar
-http://localhost:8080/callback/documents
-http://localhost:8080/callback/analytics</pre>
-                        <h4 style="margin-top:0.5rem;">Claude Code / MCP SDK</h4>
+                        <h4>Redirect URIs per Server (Chatbot Portal)</h4>
+                        <div class="row"><span class="label">Calendar (:3001)</span><span class="value">http://localhost:8080/callback/calendar</span></div>
+                        <div class="row"><span class="label">Documents (:3002)</span><span class="value">http://localhost:8080/callback/documents</span></div>
+                        <div class="row"><span class="label">Analytics (:3003)</span><span class="value">http://localhost:8080/callback/analytics</span></div>
+                    </div>
+                    <div class="info-section">
+                        <h4>Redirect URIs (Claude Code / MCP SDK &mdash; all servers)</h4>
                         <pre>http://127.0.0.1/callback
 http://localhost/callback</pre>
                     </div>
                     <div class="info-section">
-                        <h4>Resource Metadata (RFC 9728)</h4>
+                        <h4>Resource URIs (what the token protects)</h4>
+                        <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/</span></div>
+                        <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/</span></div>
+                        <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/</span></div>
+                    </div>
+                    <div class="info-section">
+                        <h4>Resource Metadata Discovery (RFC 9728)</h4>
                         <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/.well-known/oauth-protected-resource</span></div>
                         <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/.well-known/oauth-protected-resource</span></div>
                         <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/.well-known/oauth-protected-resource</span></div>
+                    </div>
+                    <div class="info-section">
+                        <h4>Required Scopes (all servers)</h4>
+                        <pre>openid email profile</pre>
+                        <div style="font-size:0.68rem; color:#5a6872; margin-top:0.3rem;">Both the chatbot portal and Claude Code request these during the OAuth authorization request.</div>
                     </div>
                 </div>
             </div>

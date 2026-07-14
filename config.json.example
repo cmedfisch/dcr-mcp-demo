@@ -1,11 +1,26 @@
 {
   "calendar": {
-    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX"
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX",
+    "_comment": "Calendar MCP Server on port 3001",
+    "_resource_uri": "http://localhost:3001/",
+    "_redirect_uri_portal": "http://localhost:8080/callback/calendar",
+    "_redirect_uri_claude": "http://127.0.0.1/callback",
+    "_scopes": "openid email profile"
   },
   "documents": {
-    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX"
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX",
+    "_comment": "Documents MCP Server on port 3002",
+    "_resource_uri": "http://localhost:3002/",
+    "_redirect_uri_portal": "http://localhost:8080/callback/documents",
+    "_redirect_uri_claude": "http://127.0.0.1/callback",
+    "_scopes": "openid email profile"
   },
   "analytics": {
-    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX"
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX",
+    "_comment": "Analytics MCP Server on port 3003",
+    "_resource_uri": "http://localhost:3003/",
+    "_redirect_uri_portal": "http://localhost:8080/callback/analytics",
+    "_redirect_uri_claude": "http://127.0.0.1/callback",
+    "_scopes": "openid email profile"
   }
 }
