@@ -42,6 +42,9 @@ env/
 venv/
 .venv/
 
+# Config with credentials (use config.json.example as template)
+config.json
+
 # Java
 *.class
 *.jar

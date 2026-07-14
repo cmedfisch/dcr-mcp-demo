@@ -1,11 +1,24 @@
 """
-DCR Demo - 3 Fake MCP Servers registering via OAuth Dynamic Client Registration.
+DCR Demo - Chatbot Portal
+
+A web app ("fake chatbot") that connects to 3 MCP servers over HTTP.
+Each MCP server requires OAuth authentication via Duo SSO before tools are visible.
+
+Architecture:
+  - This app (port 8080): chatbot portal / dashboard
+  - MCP servers (ports 3001-3003): HTTP servers with OAuth auth gates
+  - Duo SSO: the authorization server for all flows
+
+Both this chatbot and Claude Code go through the same auth ceremony:
+  1. Hit MCP server → 401 + WWW-Authenticate
+  2. Discover Duo AS via /.well-known/oauth-protected-resource
+  3. DCR register with Duo (client_name = agent identity)
+  4. Browser redirect → user authenticates
+  5. Bearer token → MCP tools unlocked
 
 Run:
-    pip install flask requests
-    python3 app.py
-
-Then open http://localhost:8080 — configure each server's endpoints on the /config page.
+    python3 servers.py --all   # start 3 MCP servers
+    python3 app.py             # start chatbot portal
 """
 
 import os
@@ -13,6 +26,7 @@ import json
 import secrets
 import hashlib
 import base64
+from pathlib import Path
 from urllib.parse import urlencode
 
 import requests
@@ -23,41 +37,65 @@ app.secret_key = secrets.token_hex(16)
 
 PORT = int(os.environ.get("PORT", "8080"))
 BASE_URL = f"http://localhost:{PORT}"
+CONFIG_PATH = Path(__file__).parent / "config.json"
 
-# --- 3 Fake MCP Servers (each gets its own issuer) ---
+
+def load_config() -> dict:
+    if CONFIG_PATH.exists():
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    return {}
+
+
+def save_config(cfg: dict):
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(cfg, f, indent=2)
+        f.write("\n")
+
+# --- MCP Server config ---
 SERVERS = {
     "calendar": {
         "name": "Calendar MCP Server",
         "description": "Manages calendar events and scheduling",
         "scopes": ["openid", "email", "profile"],
+        "resource_uri": "http://localhost:3001/",
+        "redirect_uri": "http://localhost:8080/callback/calendar",
         "icon": "\U0001f4c5",
+        "mcp_port": 3001,
         "issuer": "",
     },
     "documents": {
         "name": "Documents MCP Server",
         "description": "File storage and document management",
         "scopes": ["openid", "email", "profile"],
+        "resource_uri": "http://localhost:3002/",
+        "redirect_uri": "http://localhost:8080/callback/documents",
         "icon": "\U0001f4c4",
+        "mcp_port": 3002,
         "issuer": "",
     },
     "analytics": {
         "name": "Analytics MCP Server",
         "description": "Usage metrics and reporting dashboard",
         "scopes": ["openid", "email", "profile"],
+        "resource_uri": "http://localhost:3003/",
+        "redirect_uri": "http://localhost:8080/callback/analytics",
         "icon": "\U0001f4ca",
+        "mcp_port": 3003,
         "issuer": "",
     },
 }
 
+# Load issuers from config.json on startup
+_cfg = load_config()
+for sid in SERVERS:
+    if sid in _cfg and _cfg[sid].get("issuer"):
+        SERVERS[sid]["issuer"] = _cfg[sid]["issuer"]
+
 
 def derive_endpoints(issuer: str) -> dict:
-    """Derive the 3 URLs from an issuer like https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXX"""
+    """Derive Duo's 3 OAuth URLs from an issuer like https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXX"""
     issuer = issuer.rstrip("/")
-    # Extract host and path parts
-    # issuer: https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXX
-    # oauth_metadata: https://sso-xxx.test.sso.duosecurity.com/.well-known/oauth-authorization-server/oauth2/DIXXXX
-    # oidc_discovery: https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXX/.well-known/openid-configuration
-    # registration: https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXX/register
     from urllib.parse import urlparse
     parsed = urlparse(issuer)
     base = f"{parsed.scheme}://{parsed.netloc}"
@@ -68,12 +106,11 @@ def derive_endpoints(issuer: str) -> dict:
         "registration_endpoint": f"{issuer}/register",
     }
 
-# In-memory registration state
+
 registrations = {}
 
 
 def fetch_metadata(url: str) -> dict:
-    """Fetch a JSON metadata document."""
     if not url:
         return {"error": "URL not configured"}
     try:
@@ -85,7 +122,7 @@ def fetch_metadata(url: str) -> dict:
 
 
 def do_dcr(server_id: str) -> dict:
-    """Perform Dynamic Client Registration (RFC 7591)."""
+    """Perform Dynamic Client Registration (RFC 7591) with Duo."""
     server = SERVERS[server_id]
     redirect_uri = f"{BASE_URL}/callback/{server_id}"
 
@@ -105,47 +142,29 @@ def do_dcr(server_id: str) -> dict:
     }
 
     try:
-        resp = requests.post(
-            reg_endpoint,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=15,
-        )
-        result = {
-            "status_code": resp.status_code,
-            "endpoint_used": reg_endpoint,
-            "request_payload": payload,
-        }
+        resp = requests.post(reg_endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
+        result = {"status_code": resp.status_code, "endpoint_used": reg_endpoint, "request_payload": payload}
         try:
             result["response"] = resp.json()
         except ValueError:
             result["response_text"] = resp.text
         return result
     except Exception as e:
-        return {
-            "error": str(e),
-            "endpoint_attempted": reg_endpoint,
-            "request_payload": payload,
-        }
+        return {"error": str(e), "endpoint_attempted": reg_endpoint, "request_payload": payload}
 
 
 def generate_pkce():
     verifier = secrets.token_urlsafe(43)
-    challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(verifier.encode()).digest()
-    ).rstrip(b"=").decode()
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     return verifier, challenge
 
 
 def decode_jwt_unverified(token: str) -> dict:
-    """Decode a JWT without signature verification (for display only)."""
     parts = token.split(".")
     if len(parts) < 2:
         return {"error": "Not a valid JWT"}
-
     def pad_b64(s):
         return s + "=" * (4 - len(s) % 4)
-
     try:
         header = json.loads(base64.urlsafe_b64decode(pad_b64(parts[0])))
         payload = json.loads(base64.urlsafe_b64decode(pad_b64(parts[1])))
@@ -167,11 +186,30 @@ def config_page():
 
 
 @app.route("/config/<server_id>", methods=["POST"])
-def save_config(server_id):
+def save_server_config(server_id):
     if server_id not in SERVERS:
         return "Unknown server", 404
-    SERVERS[server_id]["issuer"] = request.form.get("issuer", "").strip()
+    issuer = request.form.get("issuer", "").strip()
+    SERVERS[server_id]["issuer"] = issuer
+    # Persist to config.json
+    cfg = load_config()
+    if server_id not in cfg:
+        cfg[server_id] = {}
+    cfg[server_id]["issuer"] = issuer
+    save_config(cfg)
     return redirect("/config")
+
+
+@app.route("/clear", methods=["POST"])
+def clear_all():
+    registrations.clear()
+    return redirect("/")
+
+
+@app.route("/clear/<server_id>", methods=["POST"])
+def clear_server(server_id):
+    registrations.pop(server_id, None)
+    return redirect("/")
 
 
 @app.route("/connect/<server_id>", methods=["POST"])
@@ -184,14 +222,12 @@ def connect(server_id):
     if not server["issuer"]:
         return "Not configured. Go to <a href='/config'>/config</a> first.", 400
 
-    # Step 1: Register via DCR if we don't already have a client_id
     if server_id not in registrations or not registrations[server_id].get("response", {}).get("client_id"):
         result = do_dcr(server_id)
         registrations[server_id] = result
         if not result.get("response", {}).get("client_id"):
-            return redirect("/")  # show error on dashboard
+            return redirect("/")
 
-    # Step 2: Build the authorize URL and redirect to Duo
     reg = registrations[server_id]
     client_id = reg["response"]["client_id"]
 
@@ -230,7 +266,6 @@ def callback(server_id):
         client_secret = reg.get("response", {}).get("client_secret", "")
         verifier = reg.get("pkce_verifier", "")
 
-        # Get token endpoint from metadata
         endpoints = derive_endpoints(server["issuer"])
         metadata = fetch_metadata(endpoints["oauth_metadata_url"])
         token_endpoint = metadata.get("token_endpoint", "")
@@ -248,16 +283,14 @@ def callback(server_id):
 
             try:
                 resp = requests.post(token_endpoint, data=token_data, timeout=15)
-                token_response = {
-                    "status_code": resp.status_code,
-                    "endpoint": token_endpoint,
-                }
+                token_response = {"status_code": resp.status_code, "endpoint": token_endpoint}
                 try:
                     token_response["body"] = resp.json()
                 except ValueError:
                     token_response["body_raw"] = resp.text
 
-                # Decode JWTs (without verification — just for display)
+                registrations[server_id]["token_response"] = token_response
+
                 body = token_response.get("body", {})
                 for key in ("access_token", "id_token"):
                     token = body.get(key, "")
@@ -275,6 +308,76 @@ def callback(server_id):
         decoded_tokens=decoded_tokens)
 
 
+@app.route("/token-exchange/<source_id>/<target_id>", methods=["POST"])
+def token_exchange(source_id, target_id):
+    """RFC 8693 Token Exchange (optional, requires confidential client)."""
+    if source_id not in SERVERS or target_id not in SERVERS:
+        return "Unknown server", 404
+
+    source_server = SERVERS[source_id]
+    target_server = SERVERS[target_id]
+    source_reg = registrations.get(source_id, {})
+    target_reg = registrations.get(target_id, {})
+
+    source_token = source_reg.get("token_response", {}).get("body", {}).get("access_token")
+    if not source_token:
+        return render_template_string(EXCHANGE_TEMPLATE,
+            src=source_server, target=target_server,
+            src_id=source_id, target_id=target_id,
+            error="No access token for source server. Connect to it first.")
+
+    target_client_id = target_reg.get("response", {}).get("client_id", "")
+    source_client_id = source_reg.get("response", {}).get("client_id", "")
+    source_client_secret = source_reg.get("response", {}).get("client_secret", "")
+
+    endpoints = derive_endpoints(source_server["issuer"])
+    metadata = fetch_metadata(endpoints["oauth_metadata_url"])
+    token_endpoint = metadata.get("token_endpoint", "")
+
+    if not token_endpoint:
+        return render_template_string(EXCHANGE_TEMPLATE,
+            src=source_server, target=target_server,
+            src_id=source_id, target_id=target_id,
+            error="Could not find token_endpoint in metadata")
+
+    exchange_data = {
+        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+        "subject_token": source_token,
+        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "scope": "read:calendar",
+        "client_id": source_client_id,
+    }
+    if target_client_id:
+        exchange_data["audience"] = target_client_id
+    if source_client_secret:
+        exchange_data["client_secret"] = source_client_secret
+
+    exchange_result = {"endpoint": token_endpoint, "request": exchange_data.copy()}
+
+    try:
+        resp = requests.post(token_endpoint, data=exchange_data, timeout=15)
+        exchange_result["status_code"] = resp.status_code
+        try:
+            exchange_result["response"] = resp.json()
+        except ValueError:
+            exchange_result["response_raw"] = resp.text
+        exchanged_decoded = {}
+        body = exchange_result.get("response", {})
+        if body.get("access_token") and "." in body["access_token"]:
+            exchanged_decoded["access_token"] = decode_jwt_unverified(body["access_token"])
+    except Exception as e:
+        exchange_result["error"] = str(e)
+        exchanged_decoded = {}
+
+    return render_template_string(EXCHANGE_TEMPLATE,
+        src=source_server, target=target_server,
+        src_id=source_id, target_id=target_id,
+        exchange_result=exchange_result,
+        exchanged_decoded=exchanged_decoded,
+        error=None)
+
+
 @app.route("/metadata/<server_id>")
 def show_metadata(server_id):
     if server_id not in SERVERS:
@@ -283,10 +386,10 @@ def show_metadata(server_id):
     if not server["issuer"]:
         return "Issuer not configured", 400
     endpoints = derive_endpoints(server["issuer"])
-    source = request.args.get("source", "oidc")
-    url = endpoints["oidc_discovery_url"] if source == "oidc" else endpoints["oauth_metadata_url"]
+    src = request.args.get("source", "oidc")
+    url = endpoints["oidc_discovery_url"] if src == "oidc" else endpoints["oauth_metadata_url"]
     result = fetch_metadata(url)
-    return render_template_string(JSON_TEMPLATE, title=f"{server['name']} - {source.upper()} Metadata", data=result)
+    return render_template_string(JSON_TEMPLATE, title=f"{server['name']} - {src.upper()} Metadata", data=result)
 
 
 # --- Templates ---
@@ -294,237 +397,412 @@ def show_metadata(server_id):
 CONFIG_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>Configure MCP Servers</title>
+    <title>Settings - MCP Agent Portal</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; }
-        h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
-        .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 800px; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; }
-        .card h2 { font-size: 1.1rem; margin-bottom: 1rem; }
-        .card .icon { display: inline; margin-right: 0.5rem; }
-        label { display: block; color: #8b949e; font-size: 0.8rem; margin-bottom: 0.25rem; margin-top: 0.75rem; }
-        input[type="text"] { width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; font-family: monospace; font-size: 0.8rem; }
-        input[type="text"]:focus { outline: none; border-color: #58a6ff; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; text-decoration: none; margin-top: 1rem; }
-        .btn-primary { background: #238636; color: white; }
-        .btn-primary:hover { background: #2ea043; }
-        .nav { margin-bottom: 1.5rem; }
-        .nav a { color: #58a6ff; font-size: 0.85rem; text-decoration: none; }
-        .derived { margin-top: 0.75rem; padding: 0.5rem; background: #0d1117; border-radius: 4px; }
-        .derived-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 0.25rem; }
-        .derived-url { font-family: monospace; font-size: 0.7rem; color: #3fb950; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #1b2733; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a3a4a; }
+        .sidebar-brand h2 { font-size: 0.9rem; color: #fff; font-weight: 600; letter-spacing: -0.2px; }
+        .sidebar-brand span { font-size: 0.7rem; color: #7b8fa3; }
+        .sidebar-nav { padding: 0.75rem 0.75rem; flex: 1; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 6px; color: #b0bec5; text-decoration: none; font-size: 0.82rem; margin-bottom: 0.2rem; transition: all 0.15s; }
+        .sidebar-nav a:hover { background: #2a3a4a; color: #fff; }
+        .sidebar-nav a.active { background: #049fd9; color: #fff; }
+        .sidebar-nav a svg { width: 16px; height: 16px; fill: currentColor; }
+        .main { flex: 1; padding: 2rem 2.5rem; overflow-y: auto; }
+        h1 { font-size: 1.5rem; font-weight: 600; color: #1b2733; margin-bottom: 0.25rem; }
+        .subtitle { color: #5a6872; margin-bottom: 2rem; font-size: 0.85rem; }
+        .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; color: #5a6872; margin-bottom: 0.75rem; font-weight: 600; }
+        .setting-card { background: #fff; border: 1px solid #e0e5e9; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .setting-card h3 { font-size: 0.95rem; margin-bottom: 0.4rem; color: #1b2733; font-weight: 600; }
+        .setting-card .meta { font-size: 0.75rem; color: #5a6872; margin-bottom: 1rem; }
+        .setting-card .meta code { background: #f0f4f8; padding: 0.15rem 0.5rem; border-radius: 3px; color: #049fd9; font-size: 0.7rem; border: 1px solid #e0e5e9; }
+        label { display: block; font-size: 0.78rem; color: #5a6872; margin-bottom: 0.3rem; font-weight: 500; }
+        input[type="text"] { width: 100%; padding: 0.6rem 0.75rem; border-radius: 4px; border: 1px solid #d2d8de; background: #fff; color: #1b2733; font-family: 'SF Mono', 'Menlo', monospace; font-size: 0.78rem; transition: border 0.15s; }
+        input[type="text"]:focus { outline: none; border-color: #049fd9; box-shadow: 0 0 0 2px #049fd922; }
+        .btn { padding: 0.5rem 1.25rem; border-radius: 4px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; }
+        .btn-save { background: #049fd9; color: #fff; margin-top: 0.75rem; }
+        .btn-save:hover { background: #037fb3; }
+        .info-block { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.75rem; }
+        .info-block .info-label { font-size: 0.65rem; color: #049fd9; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-block .info-row { font-family: 'SF Mono', monospace; font-size: 0.7rem; color: #5a6872; margin-bottom: 0.2rem; word-break: break-all; }
+        .redirect-block { background: #fff8f0; border: 1px solid #f5a623; border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.75rem; }
+        .redirect-block h4 { font-size: 0.72rem; color: #c77a00; margin-bottom: 0.5rem; font-weight: 600; }
+        .redirect-block code { display: block; font-size: 0.7rem; color: #1b2733; margin-bottom: 0.2rem; font-family: 'SF Mono', monospace; }
+        .redirect-block .note { font-size: 0.65rem; color: #8a6d3b; margin-top: 0.15rem; margin-bottom: 0.3rem; }
     </style>
 </head>
 <body>
-    <h1>Configure MCP Servers</h1>
-    <p class="subtitle">Set the 3 OAuth/OIDC URLs for each MCP server</p>
-    <div class="nav"><a href="/">&larr; Back to Dashboard</a></div>
-    <div class="grid">
-    {% for id, server in servers.items() %}
-        <div class="card">
-            <h2><span class="icon">{{ server.icon }}</span>{{ server.name }}</h2>
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>MCP Agent Portal</h2>
+            <span>Duo SSO + DCR Demo</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                Chat
+            </a>
+            <a href="/config" class="active">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                Settings
+            </a>
+        </div>
+    </div>
+    <div class="main">
+        <h1>Settings</h1>
+        <p class="subtitle">Configure Duo SSO issuers for each MCP server. Changes are saved to config.json.</p>
+
+        <div class="section-title">MCP Server Connections</div>
+        {% for id, server in servers.items() %}
+        <div class="setting-card">
+            <h3>{{ server.icon }} {{ server.name }}</h3>
+            <div class="meta">
+                MCP Endpoint: <code>http://localhost:{{ server.mcp_port }}/mcp</code>
+                &nbsp;&bull;&nbsp;
+                Resource URI: <code>{{ server.resource_uri }}</code>
+                &nbsp;&bull;&nbsp;
+                Scopes: <code>{{ server.scopes | join(' ') }}</code>
+            </div>
             <form method="POST" action="/config/{{ id }}">
-                <label>Issuer URL</label>
+                <label>Duo SSO Issuer URL</label>
                 <input type="text" name="issuer" value="{{ server.issuer }}" placeholder="https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX">
-                <button class="btn btn-primary" type="submit">Save</button>
+                <button class="btn btn-save" type="submit">Save</button>
             </form>
             {% if server.issuer %}
-                <div class="derived">
-                    <div class="derived-label">Derived endpoints:</div>
-                    <div class="derived-url">.well-known/oauth-authorization-server</div>
-                    <div class="derived-url">.well-known/openid-configuration</div>
-                    <div class="derived-url">/register</div>
-                </div>
+            <div class="info-block">
+                <div class="info-label">Derived Endpoints (from issuer)</div>
+                <div class="info-row">OAuth Metadata: {{ server.issuer | replace(server.issuer.split('/')[-1], '') }}../../.well-known/oauth-authorization-server{{ server.issuer | replace(server.issuer.split('://')[0] + '://' + server.issuer.split('/')[2], '') }}</div>
+                <div class="info-row">OIDC Discovery: {{ server.issuer }}/.well-known/openid-configuration</div>
+                <div class="info-row">DCR Registration: {{ server.issuer }}/register</div>
+                <div class="info-row">Token Endpoint: {{ server.issuer }}/token</div>
+                <div class="info-row">Authorize: {{ server.issuer }}/authorize</div>
+            </div>
+            <div class="info-block">
+                <div class="info-label">Protected Resource Metadata (RFC 9728) &mdash; {{ server.name }}</div>
+                <div class="info-row">http://localhost:{{ server.mcp_port }}/.well-known/oauth-protected-resource</div>
+                <div class="info-row" style="color:#049fd9;">Resource URI: {{ server.resource_uri }}</div>
+            </div>
+            <div class="info-block">
+                <div class="info-label">Required Scopes for {{ server.name }}</div>
+                <div class="info-row">{{ server.scopes | join(' ') }}</div>
+                <div class="info-row" style="color:#5a6872; font-style:italic; font-family:inherit;">Both chatbot portal and Claude Code request these scopes during authorization</div>
+            </div>
+            <div class="redirect-block">
+                <h4>Required Redirect URIs for {{ server.name }} (Duo Admin Panel)</h4>
+                <code>http://localhost:8080/callback/{{ id }}</code>
+                <div class="note">Chatbot portal redirect for {{ server.name }} (port {{ server.mcp_port }})</div>
+                <code>http://127.0.0.1/callback</code>
+                <code>http://localhost/callback</code>
+                <div class="note">Claude Code / MCP SDK redirect (shared across all servers)</div>
+            </div>
             {% endif %}
         </div>
-    {% endfor %}
+        {% endfor %}
     </div>
+</div>
 </body>
 </html>"""
 
 TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>DCR Demo - MCP Servers</title>
+    <title>MCP Agent Portal</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; }
-        h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
-        .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; }
-        .card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
-        .card .icon { font-size: 2rem; margin-bottom: 0.75rem; }
-        .card .desc { color: #8b949e; font-size: 0.85rem; margin-bottom: 0.5rem; }
-        .card .endpoints { font-size: 0.75rem; color: #6e7681; font-family: monospace; margin-bottom: 1rem; word-break: break-all; }
-        .card .endpoints .configured { color: #3fb950; }
-        .card .endpoints .missing { color: #da3633; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; text-decoration: none; }
-        .btn-primary { background: #238636; color: white; }
-        .btn-primary:hover { background: #2ea043; }
-        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-        .btn-secondary:hover { background: #30363d; }
-        .btn-disabled { background: #21262d; color: #484f58; border: 1px solid #30363d; cursor: not-allowed; }
-        .status { margin-top: 1rem; padding: 0.75rem; border-radius: 6px; font-size: 0.8rem; font-family: monospace; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
-        .status-success { background: #0d1117; border: 1px solid #238636; }
-        .status-error { background: #0d1117; border: 1px solid #da3633; }
-        .status-pending { background: #0d1117; border: 1px solid #30363d; color: #8b949e; }
-        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-        a.btn { display: inline-block; }
-        .dcr-payload { margin: 0.75rem 0; }
-        .dcr-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 0.25rem; }
-        .dcr-json { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem; font-size: 0.75rem; color: #7ee787; white-space: pre; overflow-x: auto; margin: 0; }
-        .nav { margin-bottom: 1rem; display: flex; gap: 1.5rem; }
-        .nav a { color: #58a6ff; font-size: 0.85rem; text-decoration: none; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #1b2733; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a3a4a; }
+        .sidebar-brand h2 { font-size: 0.9rem; color: #fff; font-weight: 600; }
+        .sidebar-brand span { font-size: 0.7rem; color: #7b8fa3; }
+        .sidebar-nav { padding: 0.75rem 0.75rem; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 6px; color: #b0bec5; text-decoration: none; font-size: 0.82rem; margin-bottom: 0.2rem; transition: all 0.15s; }
+        .sidebar-nav a:hover { background: #2a3a4a; color: #fff; }
+        .sidebar-nav a.active { background: #049fd9; color: #fff; }
+        .sidebar-nav a svg { width: 16px; height: 16px; fill: currentColor; }
+        .server-list { padding: 0.75rem; flex: 1; }
+        .server-list h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.2px; color: #7b8fa3; margin-bottom: 0.6rem; padding: 0 0.5rem; }
+        .server-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-radius: 6px; margin-bottom: 0.3rem; font-size: 0.78rem; }
+        .server-item:hover { background: #2a3a4a; }
+        .server-item .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .server-item .dot.connected { background: #00c853; }
+        .server-item .dot.disconnected { background: #ff5252; }
+        .server-item .dot.unconfigured { background: #7b8fa3; }
+        .server-item .sname { color: #b0bec5; }
+        .sidebar-footer { padding: 0.75rem; border-top: 1px solid #2a3a4a; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 0.85rem 2rem; border-bottom: 1px solid #e0e5e9; background: #fff; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .chat-header h1 { font-size: 1rem; color: #1b2733; font-weight: 600; }
+        .chat-header .badge { font-size: 0.65rem; background: #e8f7fd; color: #049fd9; padding: 0.2rem 0.6rem; border-radius: 10px; font-weight: 600; border: 1px solid #b8e6f9; }
+        .chat-messages { flex: 1; padding: 1.5rem 2rem; overflow-y: auto; background: #f5f6f7; }
+        .msg { max-width: 680px; margin-bottom: 1.25rem; }
+        .msg-bubble { padding: 1rem 1.25rem; border-radius: 10px; font-size: 0.83rem; line-height: 1.6; }
+        .msg.system .msg-bubble { background: #fff; border: 1px solid #e0e5e9; color: #5a6872; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .msg.bot .msg-bubble { background: #fff; border: 1px solid #e0e5e9; color: #1b2733; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border-left: 3px solid #049fd9; }
+        .msg-label { font-size: 0.65rem; color: #7b8fa3; margin-bottom: 0.3rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .connect-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 1rem 0; }
+        .connect-card { background: #fff; border: 1px solid #e0e5e9; border-radius: 10px; padding: 1.25rem 1rem; text-align: center; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .connect-card:hover { border-color: #049fd9; box-shadow: 0 2px 8px rgba(4,159,217,0.1); }
+        .connect-card .icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .connect-card .name { font-size: 0.82rem; color: #1b2733; margin-bottom: 0.3rem; font-weight: 600; }
+        .connect-card .status { font-size: 0.7rem; margin-bottom: 0.6rem; }
+        .connect-card .status.ok { color: #00c853; font-weight: 600; }
+        .connect-card .status.pending { color: #5a6872; }
+        .connect-card .status.error { color: #ff5252; }
+        .btn { padding: 0.4rem 1rem; border-radius: 4px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: all 0.15s; }
+        .btn-connect { background: #049fd9; color: #fff; }
+        .btn-connect:hover { background: #037fb3; }
+        .btn-reconnect { background: transparent; color: #049fd9; border: 1px solid #049fd9; }
+        .btn-reconnect:hover { background: #049fd911; }
+        .btn-danger { background: transparent; color: #ff5252; border: 1px solid #ff525244; font-size: 0.7rem; margin-top: 0.3rem; }
+        .btn-danger:hover { background: #ff525211; }
+        .chat-input { padding: 1rem 2rem; border-top: 1px solid #e0e5e9; background: #fff; }
+        .input-row { display: flex; gap: 0.75rem; max-width: 680px; }
+        .input-row input { flex: 1; padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid #d2d8de; background: #f5f6f7; color: #1b2733; font-size: 0.85rem; }
+        .input-row input:focus { outline: none; border-color: #049fd9; background: #fff; }
+        .input-row input::placeholder { color: #9aa5b1; }
+        .input-row button { padding: 0.7rem 1.5rem; border-radius: 8px; border: none; background: #049fd9; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+        .input-row button:hover { background: #037fb3; }
+        .input-row button:disabled { background: #d2d8de; color: #9aa5b1; cursor: not-allowed; }
+        .input-row input:disabled { background: #eef1f3; }
+        .info-section { margin: 0.75rem 0; padding: 0.85rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; }
+        .info-section h4 { font-size: 0.65rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; font-weight: 700; }
+        .info-section pre { font-size: 0.7rem; color: #1b2733; line-height: 1.6; white-space: pre-wrap; word-break: break-all; font-family: 'SF Mono', monospace; }
+        .info-section .row { display: flex; justify-content: space-between; font-size: 0.7rem; padding: 0.15rem 0; }
+        .info-section .row .label { color: #5a6872; }
+        .info-section .row .value { color: #1b2733; font-family: 'SF Mono', monospace; font-size: 0.68rem; }
     </style>
 </head>
 <body>
-    <h1>DCR Demo: MCP Servers + Duo SSO</h1>
-    <p class="subtitle">Dynamic Client Registration (RFC 7591) with PKCE public clients</p>
-    <div class="nav">
-        <a href="/config">Configure Servers</a>
-        {% for id, server in servers.items() %}
-            {% if server.issuer %}
-                <a href="/metadata/{{ id }}?source=oauth">{{ server.icon }} Metadata</a>
-            {% endif %}
-        {% endfor %}
-    </div>
-    <div class="grid">
-    {% for id, server in servers.items() %}
-        <div class="card">
-            <div class="icon">{{ server.icon }}</div>
-            <h2>{{ server.name }}</h2>
-            <p class="desc">{{ server.description }}</p>
-            <div class="endpoints">
-                {% if server.issuer %}
-                    <span class="configured">{{ server.issuer }}</span>
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>MCP Agent Portal</h2>
+            <span>Duo SSO + DCR Demo</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="active">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                Chat
+            </a>
+            <a href="/config">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                Settings
+            </a>
+        </div>
+        <div class="server-list">
+            <h3>Servers</h3>
+            {% for id, server in servers.items() %}
+            <div class="server-item">
+                {% if id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
+                    <div class="dot connected"></div>
+                {% elif server.issuer %}
+                    <div class="dot disconnected"></div>
                 {% else %}
-                    <span class="missing">Not configured &mdash; <a href="/config" style="color:#58a6ff">set issuer</a></span>
+                    <div class="dot unconfigured"></div>
                 {% endif %}
+                <span class="sname">{{ server.icon }} {{ server.name.replace(' MCP Server', '') }}</span>
             </div>
-            {% if server.issuer %}
-                <div class="dcr-payload">
-                    <div class="dcr-label">DCR Request Payload:</div>
-                    <pre class="dcr-json">POST {{ server.issuer }}/register
-Content-Type: application/json
-
-{
-  "client_name": "{{ server.name }}",
-  "redirect_uris": ["{{ base_url }}/callback/{{ id }}"],
-  "grant_types": ["authorization_code"],
-  "response_types": ["code"],
-  "token_endpoint_auth_method": "none",
-  "application_type": "web"
-}</pre>
-                </div>
-            {% endif %}
-            <div class="actions">
-                {% if server.issuer %}
-                    <form method="POST" action="/connect/{{ id }}" style="display:inline">
-                        {% if id in registrations and registrations[id].get('response', {}).get('client_id') %}
-                            <button class="btn btn-secondary" type="submit">Reconnect</button>
-                        {% else %}
-                            <button class="btn btn-primary" type="submit">Connect</button>
-                        {% endif %}
-                    </form>
-                {% else %}
-                    <span class="btn btn-disabled">Connect</span>
-                {% endif %}
-            </div>
-            {% if id in registrations %}
-                {% set reg = registrations[id] %}
-                {% if reg.get('response', {}).get('client_id') %}
-                    <div class="status status-success">{{ reg | tojson }}</div>
-                {% elif reg.get('error') %}
-                    <div class="status status-error">{{ reg | tojson }}</div>
-                {% else %}
-                    <div class="status status-pending">{{ reg | tojson }}</div>
-                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="sidebar-footer">
+            {% if registrations %}
+            <form method="POST" action="/clear" style="display:inline">
+                <button class="btn btn-danger" type="submit" style="width:100%;">Clear All Sessions</button>
+            </form>
             {% endif %}
         </div>
-    {% endfor %}
     </div>
+    <div class="chat-area">
+        <div class="chat-header">
+            <h1>MCP Agent Chat</h1>
+            <span class="badge">DCR + Duo SSO</span>
+        </div>
+        <div class="chat-messages">
+            <div class="msg system">
+                <div class="msg-label">System</div>
+                <div class="msg-bubble">
+                    Welcome to the MCP Agent Portal. This chatbot connects to 3 MCP servers via OAuth Dynamic Client Registration.
+                    Both this portal and Claude Code authenticate through Duo SSO before accessing any tools.
+                    Connect to a server below to begin.
+                </div>
+            </div>
+
+            <div class="connect-cards">
+                {% for id, server in servers.items() %}
+                <div class="connect-card">
+                    <div class="icon">{{ server.icon }}</div>
+                    <div class="name">{{ server.name.replace(' MCP Server', '') }}</div>
+                    {% if id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
+                        <div class="status ok">Connected</div>
+                        <form method="POST" action="/connect/{{ id }}" style="display:inline">
+                            <button class="btn btn-reconnect" type="submit">Reconnect</button>
+                        </form>
+                    {% elif server.issuer %}
+                        <div class="status pending">Ready to connect</div>
+                        <form method="POST" action="/connect/{{ id }}" style="display:inline">
+                            <button class="btn btn-connect" type="submit">Connect</button>
+                        </form>
+                    {% else %}
+                        <div class="status error">Not configured</div>
+                        <a href="/config" class="btn btn-reconnect">Configure</a>
+                    {% endif %}
+                    {% if id in registrations %}
+                    <form method="POST" action="/clear/{{ id }}">
+                        <button class="btn btn-danger" type="submit">Disconnect</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="msg bot">
+                <div class="msg-label">Agent Portal</div>
+                <div class="msg-bubble">
+                    <strong>Add servers to Claude Code:</strong>
+                    <div class="info-section">
+                        <h4>Commands</h4>
+                        <pre>claude mcp add dcr-calendar --transport http http://localhost:3001/mcp
+claude mcp add dcr-documents --transport http http://localhost:3002/mcp
+claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
+                    </div>
+                    Claude Code hits the MCP server, gets a 401, discovers the authorization server via RFC 9728, registers via DCR, opens a browser for Duo auth, then retries with the Bearer token.
+                </div>
+            </div>
+
+            <div class="msg bot">
+                <div class="msg-label">Agent Portal</div>
+                <div class="msg-bubble">
+                    <strong>Duo Admin: Redirect URIs, Resource URIs &amp; Scopes</strong>
+                    <div class="info-section">
+                        <h4>Redirect URIs per Server (Chatbot Portal)</h4>
+                        <div class="row"><span class="label">Calendar (:3001)</span><span class="value">http://localhost:8080/callback/calendar</span></div>
+                        <div class="row"><span class="label">Documents (:3002)</span><span class="value">http://localhost:8080/callback/documents</span></div>
+                        <div class="row"><span class="label">Analytics (:3003)</span><span class="value">http://localhost:8080/callback/analytics</span></div>
+                    </div>
+                    <div class="info-section">
+                        <h4>Redirect URIs (Claude Code / MCP SDK &mdash; all servers)</h4>
+                        <pre>http://127.0.0.1/callback
+http://localhost/callback</pre>
+                    </div>
+                    <div class="info-section">
+                        <h4>Resource URIs (what the token protects)</h4>
+                        <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/</span></div>
+                        <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/</span></div>
+                        <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/</span></div>
+                    </div>
+                    <div class="info-section">
+                        <h4>Resource Metadata Discovery (RFC 9728)</h4>
+                        <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/.well-known/oauth-protected-resource</span></div>
+                        <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/.well-known/oauth-protected-resource</span></div>
+                        <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/.well-known/oauth-protected-resource</span></div>
+                    </div>
+                    <div class="info-section">
+                        <h4>Required Scopes (all servers)</h4>
+                        <pre>openid email profile</pre>
+                        <div style="font-size:0.68rem; color:#5a6872; margin-top:0.3rem;">Both the chatbot portal and Claude Code request these during the OAuth authorization request.</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if registrations %}
+            {% for id, reg in registrations.items() %}
+                {% if reg.get('error') %}
+                <div class="msg system">
+                    <div class="msg-label">{{ servers[id].icon }} {{ servers[id].name }}</div>
+                    <div class="msg-bubble" style="border-left: 3px solid #ff5252; color: #c62828;">
+                        Error: {{ reg.error }}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+            {% endif %}
+        </div>
+        <div class="chat-input">
+            <div class="input-row">
+                <input type="text" placeholder="Ask the agent something... (connect to a server first)" disabled>
+                <button disabled>Send</button>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>"""
 
 CALLBACK_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>OAuth Callback - {{ server.get('name', server_id) }}</title>
+    <title>Connected - {{ server.get('name', server_id) }}</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; max-width: 900px; }
-        h1 { margin-bottom: 1rem; }
-        h2 { font-size: 1rem; color: #8b949e; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
-        a { color: #58a6ff; }
-        .success { color: #3fb950; font-size: 1.1rem; margin-bottom: 1rem; }
-        .error { color: #da3633; font-size: 1.1rem; margin-bottom: 1rem; }
-        .step { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
-        .step-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
-        .step-detail { font-family: monospace; font-size: 0.8rem; color: #8b949e; word-break: break-all; }
-        .step-ok { border-left: 3px solid #3fb950; }
-        .step-fail { border-left: 3px solid #da3633; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 12px; padding: 2.5rem; max-width: 700px; width: 100%; margin: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h1 { font-size: 1.3rem; color: #1b2733; margin-bottom: 0.5rem; font-weight: 600; }
+        .success { color: #00c853; font-size: 0.85rem; margin-bottom: 1.5rem; font-weight: 500; }
+        .error { color: #ff5252; font-size: 0.85rem; margin-bottom: 1.5rem; font-weight: 500; }
+        .steps { margin-bottom: 1.5rem; }
+        .step { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #eef1f3; }
+        .step:last-child { border-bottom: none; }
+        .step-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; }
+        .step-num.ok { background: #049fd9; color: #fff; }
+        .step-num.fail { background: #ff5252; color: white; }
+        .step-text { flex: 1; }
+        .step-title { font-size: 0.83rem; color: #1b2733; font-weight: 500; }
+        .step-detail { font-size: 0.72rem; color: #5a6872; font-family: 'SF Mono', monospace; margin-top: 0.2rem; word-break: break-all; }
         .token-section { margin-top: 1.5rem; }
-        .token-label { font-size: 0.85rem; font-weight: 600; color: #58a6ff; margin-bottom: 0.25rem; }
+        .token-section h2 { font-size: 0.75rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-weight: 700; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 1rem; font-size: 0.72rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 1rem; font-family: 'SF Mono', monospace; }
+        .back { display: inline-block; margin-top: 1.5rem; color: #049fd9; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        .back:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
+<div class="card">
     <h1>{{ server.get('icon', '') }} {{ server.get('name', server_id) }}</h1>
     {% if code %}
-        <p class="success">Connected successfully via DCR + OAuth 2.1</p>
-        <div class="step step-ok">
-            <div class="step-title">1. Dynamic Client Registration (RFC 7591)</div>
-            <div class="step-detail">POST /register &rarr; got client_id</div>
-        </div>
-        <div class="step step-ok">
-            <div class="step-title">2. Authorization Code + PKCE (S256)</div>
-            <div class="step-detail">Redirected to Duo SSO &rarr; user authenticated</div>
-        </div>
-        <div class="step step-ok">
-            <div class="step-title">3. Callback received</div>
-            <div class="step-detail">code: {{ code[:20] }}...</div>
-        </div>
-        {% if token_response %}
-            {% if token_response.get('body', {}).get('access_token') %}
-                <div class="step step-ok">
-                    <div class="step-title">4. Token Exchange (code + code_verifier)</div>
-                    <div class="step-detail">POST {{ token_response.endpoint }} &rarr; {{ token_response.status_code }}</div>
-                </div>
-            {% else %}
-                <div class="step step-fail">
-                    <div class="step-title">4. Token Exchange</div>
-                    <div class="step-detail">{{ token_response | tojson }}</div>
-                </div>
+        <p class="success">Authenticated via DCR + OAuth 2.1 (PKCE)</p>
+        <div class="steps">
+            <div class="step"><div class="step-num ok">1</div><div class="step-text"><div class="step-title">Dynamic Client Registration</div><div class="step-detail">POST /register &rarr; got client_id</div></div></div>
+            <div class="step"><div class="step-num ok">2</div><div class="step-text"><div class="step-title">Authorization Code + PKCE</div><div class="step-detail">Redirected to Duo SSO &rarr; user authenticated</div></div></div>
+            <div class="step"><div class="step-num ok">3</div><div class="step-text"><div class="step-title">Callback</div><div class="step-detail">code: {{ code[:20] }}...</div></div></div>
+            {% if token_response %}
+                {% if token_response.get('body', {}).get('access_token') %}
+                    <div class="step"><div class="step-num ok">4</div><div class="step-text"><div class="step-title">Token Exchange</div><div class="step-detail">POST {{ token_response.endpoint }} &rarr; {{ token_response.status_code }}</div></div></div>
+                    <div class="step"><div class="step-num ok">5</div><div class="step-text"><div class="step-title">Bearer Token Ready</div><div class="step-detail">MCP tools on :{{ server.get('mcp_port', '?') }} are now accessible</div></div></div>
+                {% else %}
+                    <div class="step"><div class="step-num fail">4</div><div class="step-text"><div class="step-title">Token Exchange Failed</div><div class="step-detail">{{ token_response | tojson }}</div></div></div>
+                {% endif %}
             {% endif %}
-        {% endif %}
+        </div>
 
         {% if decoded_tokens %}
-            <div class="token-section">
+        <div class="token-section">
             {% for token_name, decoded in decoded_tokens.items() %}
-                <h2>{{ token_name }} (decoded)</h2>
-                {% if decoded.get('header') %}
-                    <div class="token-label">Header</div>
-                    <pre>{{ decoded.header | tojson(indent=2) }}</pre>
-                    <div class="token-label">Payload</div>
+                <h2>{{ token_name }}</h2>
+                {% if decoded.get('payload') %}
                     <pre>{{ decoded.payload | tojson(indent=2) }}</pre>
                 {% else %}
                     <pre>{{ decoded | tojson(indent=2) }}</pre>
                 {% endif %}
             {% endfor %}
-            </div>
+        </div>
         {% endif %}
 
         {% if token_response and token_response.get('body') %}
-            <h2>Raw token response</h2>
+            <h2 style="font-size:0.75rem; color:#5a6872; margin-bottom:0.5rem; font-weight:600;">Raw Response</h2>
             <pre>{{ token_response.body | tojson(indent=2) }}</pre>
         {% endif %}
+
     {% elif error %}
         <p class="error">Connection failed: {{ error }}</p>
         <pre>{{ params | tojson(indent=2) }}</pre>
     {% endif %}
-    <p style="margin-top: 1.5rem;"><a href="/">&larr; Back to Dashboard</a></p>
+    <a class="back" href="/">&larr; Back to Chat</a>
+</div>
 </body>
 </html>"""
 
@@ -533,20 +811,96 @@ JSON_TEMPLATE = """<!DOCTYPE html>
 <head>
     <title>{{ title }}</title>
     <style>
-        body { font-family: monospace; background: #0f1117; color: #e1e4e8; padding: 2rem; }
-        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; white-space: pre-wrap; }
-        a { color: #58a6ff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 12px; padding: 2rem; max-width: 800px; width: 100%; margin: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h2 { font-size: 1.1rem; color: #1b2733; margin-bottom: 1rem; font-weight: 600; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 1rem; font-size: 0.78rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; font-family: 'SF Mono', monospace; }
+        a { color: #049fd9; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
+<div class="card">
     <h2>{{ title }}</h2>
     <pre>{{ data | tojson(indent=2) }}</pre>
     <p style="margin-top: 1rem;"><a href="/">&larr; Back</a></p>
+</div>
+</body>
+</html>"""
+
+
+EXCHANGE_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Token Exchange - {{ src.name }} &rarr; {{ target.name }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 12px; padding: 2.5rem; max-width: 700px; width: 100%; margin: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h1 { font-size: 1.25rem; color: #1b2733; margin-bottom: 0.25rem; font-weight: 600; }
+        .subtitle { color: #5a6872; font-size: 0.85rem; margin-bottom: 1.5rem; }
+        .flow { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; padding: 1rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 8px; flex-wrap: wrap; justify-content: center; }
+        .flow-item { padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.82rem; font-weight: 600; }
+        .flow-source { background: #e8f7fd; color: #049fd9; border: 1px solid #b8e6f9; }
+        .flow-arrow { color: #9aa5b1; font-size: 1.2rem; }
+        .flow-target { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .flow-scope { background: #f3e8fd; color: #7b1fa2; border: 1px solid #ce93d8; font-family: 'SF Mono', monospace; }
+        h2 { font-size: 0.75rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin: 1rem 0 0.5rem; font-weight: 700; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 1rem; font-size: 0.72rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 0.75rem; font-family: 'SF Mono', monospace; }
+        .error { color: #ff5252; margin-bottom: 1rem; font-weight: 500; }
+        .result-ok { color: #00c853; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 500; }
+        .result-fail { color: #ff5252; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 500; }
+        a { color: #049fd9; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Token Exchange</h1>
+    <p class="subtitle">RFC 8693: {{ src.icon }} {{ src.name }} &rarr; {{ target.icon }} {{ target.name }}</p>
+
+    <div class="flow">
+        <span class="flow-item flow-source">{{ src.icon }} {{ src.name.replace(' MCP Server', '') }}</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-item flow-scope">read:calendar</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-item flow-target">{{ target.icon }} {{ target.name.replace(' MCP Server', '') }}</span>
+    </div>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% elif exchange_result %}
+        <h2>Request</h2>
+        <pre>{{ exchange_result.request | tojson(indent=2) }}</pre>
+
+        {% if exchange_result.get('status_code') %}
+            {% if exchange_result.get('response', {}).get('access_token') %}
+                <p class="result-ok">Exchange successful ({{ exchange_result.status_code }})</p>
+            {% else %}
+                <p class="result-fail">Exchange returned {{ exchange_result.status_code }}</p>
+            {% endif %}
+
+            {% if exchange_result.get('response') %}
+                <h2>Response</h2>
+                <pre>{{ exchange_result.response | tojson(indent=2) }}</pre>
+            {% endif %}
+        {% endif %}
+
+        {% if exchanged_decoded and exchanged_decoded.get('access_token') %}
+            <h2>Decoded Token</h2>
+            <pre>{{ exchanged_decoded.access_token.payload | tojson(indent=2) }}</pre>
+        {% endif %}
+    {% endif %}
+
+    <p style="margin-top: 1.5rem;"><a href="/">&larr; Back to Chat</a></p>
+</div>
 </body>
 </html>"""
 
 
 if __name__ == "__main__":
-    print(f"\n  DCR Demo running at {BASE_URL}")
-    print(f"  Configure servers at {BASE_URL}/config\n")
+    print(f"\n  Chatbot Portal running at {BASE_URL}")
+    print(f"  Configure issuers at {BASE_URL}/config")
+    print(f"\n  Make sure MCP servers are running: python3 servers.py --all\n")
     app.run(host="0.0.0.0", port=PORT, debug=True)
