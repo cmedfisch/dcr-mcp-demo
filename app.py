@@ -391,300 +391,380 @@ def show_metadata(server_id):
 CONFIG_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>Configure MCP Servers</title>
+    <title>Settings - MCP Agent Portal</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; }
-        h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
-        .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 800px; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; }
-        .card h2 { font-size: 1.1rem; margin-bottom: 1rem; }
-        label { display: block; color: #8b949e; font-size: 0.8rem; margin-bottom: 0.25rem; margin-top: 0.75rem; }
-        input[type="text"] { width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; font-family: monospace; font-size: 0.8rem; }
-        input[type="text"]:focus { outline: none; border-color: #58a6ff; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 1rem; }
-        .btn-primary { background: #238636; color: white; }
-        .btn-primary:hover { background: #2ea043; }
-        .nav { margin-bottom: 1.5rem; }
-        .nav a { color: #58a6ff; font-size: 0.85rem; text-decoration: none; }
-        .derived { margin-top: 0.75rem; padding: 0.5rem; background: #0d1117; border-radius: 4px; font-size: 0.75rem; }
-        .derived-url { font-family: monospace; font-size: 0.7rem; color: #3fb950; }
-        .note { margin-top: 0.5rem; font-size: 0.75rem; color: #8b949e; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #1b2733; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a3a4a; }
+        .sidebar-brand h2 { font-size: 0.9rem; color: #fff; font-weight: 600; letter-spacing: -0.2px; }
+        .sidebar-brand span { font-size: 0.7rem; color: #7b8fa3; }
+        .sidebar-nav { padding: 0.75rem 0.75rem; flex: 1; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 6px; color: #b0bec5; text-decoration: none; font-size: 0.82rem; margin-bottom: 0.2rem; transition: all 0.15s; }
+        .sidebar-nav a:hover { background: #2a3a4a; color: #fff; }
+        .sidebar-nav a.active { background: #049fd9; color: #fff; }
+        .sidebar-nav a svg { width: 16px; height: 16px; fill: currentColor; }
+        .main { flex: 1; padding: 2rem 2.5rem; overflow-y: auto; }
+        h1 { font-size: 1.5rem; font-weight: 600; color: #1b2733; margin-bottom: 0.25rem; }
+        .subtitle { color: #5a6872; margin-bottom: 2rem; font-size: 0.85rem; }
+        .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; color: #5a6872; margin-bottom: 0.75rem; font-weight: 600; }
+        .setting-card { background: #fff; border: 1px solid #e0e5e9; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .setting-card h3 { font-size: 0.95rem; margin-bottom: 0.4rem; color: #1b2733; font-weight: 600; }
+        .setting-card .meta { font-size: 0.75rem; color: #5a6872; margin-bottom: 1rem; }
+        .setting-card .meta code { background: #f0f4f8; padding: 0.15rem 0.5rem; border-radius: 3px; color: #049fd9; font-size: 0.7rem; border: 1px solid #e0e5e9; }
+        label { display: block; font-size: 0.78rem; color: #5a6872; margin-bottom: 0.3rem; font-weight: 500; }
+        input[type="text"] { width: 100%; padding: 0.6rem 0.75rem; border-radius: 4px; border: 1px solid #d2d8de; background: #fff; color: #1b2733; font-family: 'SF Mono', 'Menlo', monospace; font-size: 0.78rem; transition: border 0.15s; }
+        input[type="text"]:focus { outline: none; border-color: #049fd9; box-shadow: 0 0 0 2px #049fd922; }
+        .btn { padding: 0.5rem 1.25rem; border-radius: 4px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; }
+        .btn-save { background: #049fd9; color: #fff; margin-top: 0.75rem; }
+        .btn-save:hover { background: #037fb3; }
+        .info-block { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.75rem; }
+        .info-block .info-label { font-size: 0.65rem; color: #049fd9; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-block .info-row { font-family: 'SF Mono', monospace; font-size: 0.7rem; color: #5a6872; margin-bottom: 0.2rem; word-break: break-all; }
+        .redirect-block { background: #fff8f0; border: 1px solid #f5a623; border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.75rem; }
+        .redirect-block h4 { font-size: 0.72rem; color: #c77a00; margin-bottom: 0.5rem; font-weight: 600; }
+        .redirect-block code { display: block; font-size: 0.7rem; color: #1b2733; margin-bottom: 0.2rem; font-family: 'SF Mono', monospace; }
+        .redirect-block .note { font-size: 0.65rem; color: #8a6d3b; margin-top: 0.15rem; margin-bottom: 0.3rem; }
     </style>
 </head>
 <body>
-    <h1>Configure MCP Servers</h1>
-    <p class="subtitle">Set the Duo SSO issuer URL for each MCP server. This same issuer is used by both the chatbot and Claude Code.</p>
-    <div class="nav"><a href="/">&larr; Back to Dashboard</a></div>
-    <div class="grid">
-    {% for id, server in servers.items() %}
-        <div class="card">
-            <h2>{{ server.icon }} {{ server.name }}</h2>
-            <p class="note">MCP endpoint: <code>http://localhost:{{ server.mcp_port }}/mcp</code></p>
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>MCP Agent Portal</h2>
+            <span>Duo SSO + DCR Demo</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                Chat
+            </a>
+            <a href="/config" class="active">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                Settings
+            </a>
+        </div>
+    </div>
+    <div class="main">
+        <h1>Settings</h1>
+        <p class="subtitle">Configure Duo SSO issuers for each MCP server. Changes are saved to config.json.</p>
+
+        <div class="section-title">MCP Server Connections</div>
+        {% for id, server in servers.items() %}
+        <div class="setting-card">
+            <h3>{{ server.icon }} {{ server.name }}</h3>
+            <div class="meta">
+                Endpoint: <code>http://localhost:{{ server.mcp_port }}/mcp</code>
+                &nbsp;&bull;&nbsp;
+                Resource: <code>http://localhost:{{ server.mcp_port }}/</code>
+            </div>
             <form method="POST" action="/config/{{ id }}">
                 <label>Duo SSO Issuer URL</label>
                 <input type="text" name="issuer" value="{{ server.issuer }}" placeholder="https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX">
-                <button class="btn btn-primary" type="submit">Save</button>
+                <button class="btn btn-save" type="submit">Save</button>
             </form>
             {% if server.issuer %}
-                <div class="derived">
-                    <div class="derived-url">OAuth Metadata: .well-known/oauth-authorization-server/...</div>
-                    <div class="derived-url">OIDC Discovery: .well-known/openid-configuration</div>
-                    <div class="derived-url">DCR Endpoint: /register</div>
-                </div>
+            <div class="info-block">
+                <div class="info-label">Derived Endpoints</div>
+                <div class="info-row">OAuth Metadata: /.well-known/oauth-authorization-server/...</div>
+                <div class="info-row">OIDC: {{ server.issuer }}/.well-known/openid-configuration</div>
+                <div class="info-row">DCR: {{ server.issuer }}/register</div>
+            </div>
+            <div class="info-block">
+                <div class="info-label">Protected Resource Metadata (RFC 9728)</div>
+                <div class="info-row">http://localhost:{{ server.mcp_port }}/.well-known/oauth-protected-resource</div>
+            </div>
+            <div class="redirect-block">
+                <h4>Required Redirect URIs (Duo Admin Panel)</h4>
+                <code>http://localhost:8080/callback/{{ id }}</code>
+                <div class="note">Chatbot portal callback</div>
+                <code>http://127.0.0.1/callback</code>
+                <code>http://localhost/callback</code>
+                <div class="note">Claude Code / MCP SDK callbacks</div>
+            </div>
             {% endif %}
         </div>
-    {% endfor %}
+        {% endfor %}
     </div>
+</div>
 </body>
 </html>"""
 
 TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>DCR Demo - MCP + Duo SSO</title>
+    <title>MCP Agent Portal</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; }
-        h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
-        .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; }
-        .card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
-        .card .desc { color: #8b949e; font-size: 0.85rem; margin-bottom: 0.75rem; }
-        .card .mcp-url { font-family: monospace; font-size: 0.75rem; color: #3fb950; margin-bottom: 0.75rem; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; text-decoration: none; }
-        .btn-primary { background: #238636; color: white; }
-        .btn-primary:hover { background: #2ea043; }
-        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-        .btn-secondary:hover { background: #30363d; }
-        .btn-disabled { background: #21262d; color: #484f58; border: 1px solid #30363d; cursor: not-allowed; }
-        .status { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; font-size: 0.75rem; font-family: monospace; white-space: pre-wrap; word-break: break-all; max-height: 180px; overflow-y: auto; }
-        .status-success { background: #0d1117; border: 1px solid #238636; }
-        .status-error { background: #0d1117; border: 1px solid #da3633; }
-        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-        .nav { margin-bottom: 1rem; display: flex; gap: 1.5rem; align-items: center; }
-        .nav a { color: #58a6ff; font-size: 0.85rem; text-decoration: none; }
-        .agent-section { border: 1px solid #30363d; border-radius: 6px; overflow: hidden; margin: 0.75rem 0; }
-        .agent-header { padding: 0.4rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .agent-header.chatbot { background: #1f6feb; color: white; }
-        .agent-header.claude { background: #da7756; color: white; }
-        .agent-body { padding: 0.75rem; background: #0d1117; }
-        .agent-note { font-size: 0.75rem; color: #8b949e; margin-bottom: 0.5rem; }
-        .agent-detail { font-size: 0.7rem; color: #c9d1d9; margin-bottom: 0.25rem; }
-        .agent-detail code { background: #161b22; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.65rem; }
-        .claude-cmd { background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 0.5rem; font-size: 0.6rem; color: #7ee787; white-space: pre-wrap; word-break: break-all; margin: 0.25rem 0 0 0; }
-        .dcr-payload { margin: 0.75rem 0; }
-        .dcr-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 0.25rem; }
-        .dcr-json { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem; font-size: 0.7rem; color: #7ee787; white-space: pre; overflow-x: auto; margin: 0; }
-        .arch-note { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.8rem; line-height: 1.5; }
-        .arch-note code { background: #0d1117; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.75rem; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #1b2733; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a3a4a; }
+        .sidebar-brand h2 { font-size: 0.9rem; color: #fff; font-weight: 600; }
+        .sidebar-brand span { font-size: 0.7rem; color: #7b8fa3; }
+        .sidebar-nav { padding: 0.75rem 0.75rem; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 6px; color: #b0bec5; text-decoration: none; font-size: 0.82rem; margin-bottom: 0.2rem; transition: all 0.15s; }
+        .sidebar-nav a:hover { background: #2a3a4a; color: #fff; }
+        .sidebar-nav a.active { background: #049fd9; color: #fff; }
+        .sidebar-nav a svg { width: 16px; height: 16px; fill: currentColor; }
+        .server-list { padding: 0.75rem; flex: 1; }
+        .server-list h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.2px; color: #7b8fa3; margin-bottom: 0.6rem; padding: 0 0.5rem; }
+        .server-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-radius: 6px; margin-bottom: 0.3rem; font-size: 0.78rem; }
+        .server-item:hover { background: #2a3a4a; }
+        .server-item .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .server-item .dot.connected { background: #00c853; }
+        .server-item .dot.disconnected { background: #ff5252; }
+        .server-item .dot.unconfigured { background: #7b8fa3; }
+        .server-item .sname { color: #b0bec5; }
+        .sidebar-footer { padding: 0.75rem; border-top: 1px solid #2a3a4a; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 0.85rem 2rem; border-bottom: 1px solid #e0e5e9; background: #fff; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .chat-header h1 { font-size: 1rem; color: #1b2733; font-weight: 600; }
+        .chat-header .badge { font-size: 0.65rem; background: #e8f7fd; color: #049fd9; padding: 0.2rem 0.6rem; border-radius: 10px; font-weight: 600; border: 1px solid #b8e6f9; }
+        .chat-messages { flex: 1; padding: 1.5rem 2rem; overflow-y: auto; background: #f5f6f7; }
+        .msg { max-width: 680px; margin-bottom: 1.25rem; }
+        .msg-bubble { padding: 1rem 1.25rem; border-radius: 10px; font-size: 0.83rem; line-height: 1.6; }
+        .msg.system .msg-bubble { background: #fff; border: 1px solid #e0e5e9; color: #5a6872; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .msg.bot .msg-bubble { background: #fff; border: 1px solid #e0e5e9; color: #1b2733; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border-left: 3px solid #049fd9; }
+        .msg-label { font-size: 0.65rem; color: #7b8fa3; margin-bottom: 0.3rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .connect-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 1rem 0; }
+        .connect-card { background: #fff; border: 1px solid #e0e5e9; border-radius: 10px; padding: 1.25rem 1rem; text-align: center; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .connect-card:hover { border-color: #049fd9; box-shadow: 0 2px 8px rgba(4,159,217,0.1); }
+        .connect-card .icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .connect-card .name { font-size: 0.82rem; color: #1b2733; margin-bottom: 0.3rem; font-weight: 600; }
+        .connect-card .status { font-size: 0.7rem; margin-bottom: 0.6rem; }
+        .connect-card .status.ok { color: #00c853; font-weight: 600; }
+        .connect-card .status.pending { color: #5a6872; }
+        .connect-card .status.error { color: #ff5252; }
+        .btn { padding: 0.4rem 1rem; border-radius: 4px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: all 0.15s; }
+        .btn-connect { background: #049fd9; color: #fff; }
+        .btn-connect:hover { background: #037fb3; }
+        .btn-reconnect { background: transparent; color: #049fd9; border: 1px solid #049fd9; }
+        .btn-reconnect:hover { background: #049fd911; }
+        .btn-danger { background: transparent; color: #ff5252; border: 1px solid #ff525244; font-size: 0.7rem; margin-top: 0.3rem; }
+        .btn-danger:hover { background: #ff525211; }
+        .chat-input { padding: 1rem 2rem; border-top: 1px solid #e0e5e9; background: #fff; }
+        .input-row { display: flex; gap: 0.75rem; max-width: 680px; }
+        .input-row input { flex: 1; padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid #d2d8de; background: #f5f6f7; color: #1b2733; font-size: 0.85rem; }
+        .input-row input:focus { outline: none; border-color: #049fd9; background: #fff; }
+        .input-row input::placeholder { color: #9aa5b1; }
+        .input-row button { padding: 0.7rem 1.5rem; border-radius: 8px; border: none; background: #049fd9; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+        .input-row button:hover { background: #037fb3; }
+        .input-row button:disabled { background: #d2d8de; color: #9aa5b1; cursor: not-allowed; }
+        .input-row input:disabled { background: #eef1f3; }
+        .info-section { margin: 0.75rem 0; padding: 0.85rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; }
+        .info-section h4 { font-size: 0.65rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; font-weight: 700; }
+        .info-section pre { font-size: 0.7rem; color: #1b2733; line-height: 1.6; white-space: pre-wrap; word-break: break-all; font-family: 'SF Mono', monospace; }
+        .info-section .row { display: flex; justify-content: space-between; font-size: 0.7rem; padding: 0.15rem 0; }
+        .info-section .row .label { color: #5a6872; }
+        .info-section .row .value { color: #1b2733; font-family: 'SF Mono', monospace; font-size: 0.68rem; }
     </style>
 </head>
 <body>
-    <h1>DCR Demo: MCP Servers + Duo SSO</h1>
-    <p class="subtitle">Dynamic Client Registration (RFC 7591) &mdash; OAuth 2.1 with PKCE for AI agent authentication</p>
-    <div class="nav">
-        <a href="/config">Configure Issuers</a>
-        {% for id, server in servers.items() %}
-            {% if server.issuer %}
-                <a href="/metadata/{{ id }}?source=oauth">{{ server.icon }} Metadata</a>
-            {% endif %}
-        {% endfor %}
-        {% if registrations %}
-            <form method="POST" action="/clear" style="display:inline; margin-left: auto;">
-                <button style="background:none; border:none; color:#da3633; cursor:pointer; font-size:0.85rem;">Clear All Sessions</button>
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>MCP Agent Portal</h2>
+            <span>Duo SSO + DCR Demo</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="active">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                Chat
+            </a>
+            <a href="/config">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                Settings
+            </a>
+        </div>
+        <div class="server-list">
+            <h3>Servers</h3>
+            {% for id, server in servers.items() %}
+            <div class="server-item">
+                {% if id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
+                    <div class="dot connected"></div>
+                {% elif server.issuer %}
+                    <div class="dot disconnected"></div>
+                {% else %}
+                    <div class="dot unconfigured"></div>
+                {% endif %}
+                <span class="sname">{{ server.icon }} {{ server.name.replace(' MCP Server', '') }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="sidebar-footer">
+            {% if registrations %}
+            <form method="POST" action="/clear" style="display:inline">
+                <button class="btn btn-danger" type="submit" style="width:100%;">Clear All Sessions</button>
             </form>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
+    <div class="chat-area">
+        <div class="chat-header">
+            <h1>MCP Agent Chat</h1>
+            <span class="badge">DCR + Duo SSO</span>
+        </div>
+        <div class="chat-messages">
+            <div class="msg system">
+                <div class="msg-label">System</div>
+                <div class="msg-bubble">
+                    Welcome to the MCP Agent Portal. This chatbot connects to 3 MCP servers via OAuth Dynamic Client Registration.
+                    Both this portal and Claude Code authenticate through Duo SSO before accessing any tools.
+                    Connect to a server below to begin.
+                </div>
+            </div>
 
-    <div class="arch-note">
-        <strong>Architecture:</strong> 3 MCP servers run on ports 3001-3003 with OAuth auth gates.
-        Both this chatbot portal and Claude Code must authenticate via Duo SSO (DCR + PKCE) before accessing any tools.
-        The <code>client_name</code> in the DCR payload is the agent's identity &mdash; Duo matches it against admin-configured rules.
-    </div>
+            <div class="connect-cards">
+                {% for id, server in servers.items() %}
+                <div class="connect-card">
+                    <div class="icon">{{ server.icon }}</div>
+                    <div class="name">{{ server.name.replace(' MCP Server', '') }}</div>
+                    {% if id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
+                        <div class="status ok">Connected</div>
+                        <form method="POST" action="/connect/{{ id }}" style="display:inline">
+                            <button class="btn btn-reconnect" type="submit">Reconnect</button>
+                        </form>
+                    {% elif server.issuer %}
+                        <div class="status pending">Ready to connect</div>
+                        <form method="POST" action="/connect/{{ id }}" style="display:inline">
+                            <button class="btn btn-connect" type="submit">Connect</button>
+                        </form>
+                    {% else %}
+                        <div class="status error">Not configured</div>
+                        <a href="/config" class="btn btn-reconnect">Configure</a>
+                    {% endif %}
+                    {% if id in registrations %}
+                    <form method="POST" action="/clear/{{ id }}">
+                        <button class="btn btn-danger" type="submit">Disconnect</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
 
-    <div class="arch-note" style="border-color: #da7756;">
-        <strong style="color: #da7756;">Add all servers to Claude Code:</strong>
-        <pre style="background:#0d1117; color:#7ee787; font-size:0.7rem; padding:0.75rem; border-radius:4px; margin:0.5rem 0 0 0; overflow-x:auto; white-space:pre-wrap; word-break:break-all;">claude mcp add dcr-calendar --transport http http://localhost:3001/mcp
+            <div class="msg bot">
+                <div class="msg-label">Agent Portal</div>
+                <div class="msg-bubble">
+                    <strong>Add servers to Claude Code:</strong>
+                    <div class="info-section">
+                        <h4>Commands</h4>
+                        <pre>claude mcp add dcr-calendar --transport http http://localhost:3001/mcp
 claude mcp add dcr-documents --transport http http://localhost:3002/mcp
 claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
-        <div style="font-size:0.7rem; color:#8b949e; margin-top:0.5rem;">
-            Claude Code will automatically discover the auth requirements (401 &rarr; RFC 9728 &rarr; Duo DCR &rarr; browser auth &rarr; token).
-            Make sure MCP servers are running: <code>python3 servers.py --all</code>
-        </div>
-    </div>
+                    </div>
+                    Claude Code hits the MCP server, gets a 401, discovers the authorization server via RFC 9728, registers via DCR, opens a browser for Duo auth, then retries with the Bearer token.
+                </div>
+            </div>
 
-    <div class="grid">
-    {% for id, server in servers.items() %}
-        <div class="card">
-            <h2>{{ server.icon }} {{ server.name }}</h2>
-            <p class="desc">{{ server.description }}</p>
-            <div class="mcp-url">http://localhost:{{ server.mcp_port }}/mcp</div>
-
-            {% if server.issuer %}
-            <!-- ChatBot Agent -->
-            <div class="agent-section">
-                <div class="agent-header chatbot">ChatBot Agent (this portal)</div>
-                <div class="agent-body">
-                    <div class="agent-note">Browser-based. This web app registers via DCR then bounces you to Duo for authentication.</div>
-                    <div class="agent-detail"><strong>client_name:</strong> <code>{{ server.name }}</code></div>
-                    <div class="agent-detail"><strong>Redirect URI:</strong> <code>{{ base_url }}/callback/{{ id }}</code></div>
-                    <div class="actions" style="margin-top:0.5rem;">
-                        <form method="POST" action="/connect/{{ id }}" style="display:inline">
-                            {% if id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
-                                <button class="btn btn-secondary" type="submit">Reconnect</button>
-                            {% elif id in registrations and registrations[id].get('response', {}).get('client_id') %}
-                                <button class="btn btn-secondary" type="submit">Authenticate</button>
-                            {% else %}
-                                <button class="btn btn-primary" type="submit">Connect</button>
-                            {% endif %}
-                        </form>
-                        {% if id == 'documents' and id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
-                            <form method="POST" action="/token-exchange/documents/calendar" style="display:inline">
-                                <button class="btn" style="background:#a371f7; color:white;" type="submit">Token Exchange &rarr; Calendar</button>
-                            </form>
-                        {% endif %}
+            <div class="msg bot">
+                <div class="msg-label">Agent Portal</div>
+                <div class="msg-bubble">
+                    <strong>Duo Admin: Required Redirect URIs</strong>
+                    <div class="info-section">
+                        <h4>Chatbot Portal</h4>
+                        <pre>http://localhost:8080/callback/calendar
+http://localhost:8080/callback/documents
+http://localhost:8080/callback/analytics</pre>
+                        <h4 style="margin-top:0.5rem;">Claude Code / MCP SDK</h4>
+                        <pre>http://127.0.0.1/callback
+http://localhost/callback</pre>
+                    </div>
+                    <div class="info-section">
+                        <h4>Resource Metadata (RFC 9728)</h4>
+                        <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/.well-known/oauth-protected-resource</span></div>
+                        <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/.well-known/oauth-protected-resource</span></div>
+                        <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/.well-known/oauth-protected-resource</span></div>
                     </div>
                 </div>
             </div>
 
-            <!-- DCR Payload -->
-            <div class="dcr-payload">
-                <div class="dcr-label">DCR Registration Payload (sent to Duo):</div>
-                <pre class="dcr-json">{
-  "client_name": "{{ server.name }}",
-  "redirect_uris": ["{{ base_url }}/callback/{{ id }}"],
-  "grant_types": ["authorization_code"],
-  "response_types": ["code"],
-  "token_endpoint_auth_method": "none"
-}</pre>
-                <div style="font-size:0.7rem; color:#8b949e; margin-top:0.25rem;">
-                    The <code>client_name</code> is the agent identity string. Duo admins configure DCR matching rules (EXACT/PARTIAL) against this value.
-                </div>
-            </div>
-
-            <!-- Claude Code Agent -->
-            <div class="agent-section">
-                <div class="agent-header claude">Claude Code / Codex Agent</div>
-                <div class="agent-body">
-                    <div class="agent-note">
-                        Connects directly to the MCP server URL. Gets 401 &rarr; discovers Duo via RFC 9728 &rarr; DCR &rarr; browser auth &rarr; tools unlocked.
-                    </div>
-                    <div class="agent-detail"><strong>MCP URL:</strong> <code>http://localhost:{{ server.mcp_port }}/mcp</code></div>
-                    <div class="agent-detail"><strong>Auth flow:</strong> Automatic (handled by MCP client SDK)</div>
-                    <div class="agent-detail" style="margin-top:0.5rem;"><strong>Add to Claude Code:</strong></div>
-                    <pre class="claude-cmd">claude mcp add dcr-{{ id }} --transport http http://localhost:{{ server.mcp_port }}/mcp</pre>
-                    <div style="font-size:0.65rem; color:#8b949e; margin-top:0.25rem;">
-                        Duo redirect URI for this flow: <code>http://127.0.0.1/callback</code> or <code>http://localhost/callback</code>
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="actions">
-                <span class="btn btn-disabled">Not configured &mdash; <a href="/config" style="color:#58a6ff; font-size:0.8rem;">set issuer</a></span>
-            </div>
-            {% endif %}
-
-            {% if id in registrations %}
-                {% set reg = registrations[id] %}
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.75rem;">
-                    <span style="font-size:0.7rem; color:#8b949e;">
-                        {% if reg.get('token_response', {}).get('body', {}).get('access_token') %}
-                            <span style="color:#3fb950;">Authenticated</span> &mdash; client_id: {{ reg.get('response', {}).get('client_id', '?')[:12] }}...
-                        {% elif reg.get('response', {}).get('client_id') %}
-                            Registered &mdash; client_id: {{ reg.get('response', {}).get('client_id', '?')[:12] }}...
-                        {% else %}
-                            Pending
-                        {% endif %}
-                    </span>
-                    <form method="POST" action="/clear/{{ id }}" style="display:inline;">
-                        <button style="background:none; border:none; color:#da3633; cursor:pointer; font-size:0.7rem;">Clear</button>
-                    </form>
-                </div>
+            {% if registrations %}
+            {% for id, reg in registrations.items() %}
                 {% if reg.get('error') %}
-                    <div class="status status-error">{{ reg.error }}</div>
+                <div class="msg system">
+                    <div class="msg-label">{{ servers[id].icon }} {{ servers[id].name }}</div>
+                    <div class="msg-bubble" style="border-left: 3px solid #ff5252; color: #c62828;">
+                        Error: {{ reg.error }}
+                    </div>
+                </div>
                 {% endif %}
+            {% endfor %}
             {% endif %}
         </div>
-    {% endfor %}
+        <div class="chat-input">
+            <div class="input-row">
+                <input type="text" placeholder="Ask the agent something... (connect to a server first)" disabled>
+                <button disabled>Send</button>
+            </div>
+        </div>
     </div>
+</div>
 </body>
 </html>"""
 
 CALLBACK_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>OAuth Callback - {{ server.get('name', server_id) }}</title>
+    <title>Connected - {{ server.get('name', server_id) }}</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; max-width: 900px; }
-        h1 { margin-bottom: 1rem; }
-        h2 { font-size: 1rem; color: #8b949e; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
-        a { color: #58a6ff; }
-        .success { color: #3fb950; font-size: 1.1rem; margin-bottom: 1rem; }
-        .error { color: #da3633; font-size: 1.1rem; margin-bottom: 1rem; }
-        .step { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
-        .step-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
-        .step-detail { font-family: monospace; font-size: 0.8rem; color: #8b949e; word-break: break-all; }
-        .step-ok { border-left: 3px solid #3fb950; }
-        .step-fail { border-left: 3px solid #da3633; }
-        .token-label { font-size: 0.85rem; font-weight: 600; color: #58a6ff; margin-bottom: 0.25rem; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 12px; padding: 2.5rem; max-width: 700px; width: 100%; margin: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h1 { font-size: 1.3rem; color: #1b2733; margin-bottom: 0.5rem; font-weight: 600; }
+        .success { color: #00c853; font-size: 0.85rem; margin-bottom: 1.5rem; font-weight: 500; }
+        .error { color: #ff5252; font-size: 0.85rem; margin-bottom: 1.5rem; font-weight: 500; }
+        .steps { margin-bottom: 1.5rem; }
+        .step { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #eef1f3; }
+        .step:last-child { border-bottom: none; }
+        .step-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; }
+        .step-num.ok { background: #049fd9; color: #fff; }
+        .step-num.fail { background: #ff5252; color: white; }
+        .step-text { flex: 1; }
+        .step-title { font-size: 0.83rem; color: #1b2733; font-weight: 500; }
+        .step-detail { font-size: 0.72rem; color: #5a6872; font-family: 'SF Mono', monospace; margin-top: 0.2rem; word-break: break-all; }
+        .token-section { margin-top: 1.5rem; }
+        .token-section h2 { font-size: 0.75rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-weight: 700; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 1rem; font-size: 0.72rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 1rem; font-family: 'SF Mono', monospace; }
+        .back { display: inline-block; margin-top: 1.5rem; color: #049fd9; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        .back:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
+<div class="card">
     <h1>{{ server.get('icon', '') }} {{ server.get('name', server_id) }}</h1>
     {% if code %}
         <p class="success">Authenticated via DCR + OAuth 2.1 (PKCE)</p>
-        <div class="step step-ok">
-            <div class="step-title">1. Dynamic Client Registration (RFC 7591)</div>
-            <div class="step-detail">POST /register &rarr; got client_id</div>
-        </div>
-        <div class="step step-ok">
-            <div class="step-title">2. Authorization Code + PKCE (S256)</div>
-            <div class="step-detail">Redirected to Duo SSO &rarr; user authenticated</div>
-        </div>
-        <div class="step step-ok">
-            <div class="step-title">3. Callback received</div>
-            <div class="step-detail">code: {{ code[:20] }}...</div>
-        </div>
-        {% if token_response %}
-            {% if token_response.get('body', {}).get('access_token') %}
-                <div class="step step-ok">
-                    <div class="step-title">4. Token Exchange (code + code_verifier)</div>
-                    <div class="step-detail">POST {{ token_response.endpoint }} &rarr; {{ token_response.status_code }}</div>
-                </div>
-                <div class="step step-ok">
-                    <div class="step-title">5. Bearer token ready for MCP server</div>
-                    <div class="step-detail">Can now call tools on http://localhost:{{ server.get('mcp_port', '?') }}/mcp with this token</div>
-                </div>
-            {% else %}
-                <div class="step step-fail">
-                    <div class="step-title">4. Token Exchange</div>
-                    <div class="step-detail">{{ token_response | tojson }}</div>
-                </div>
+        <div class="steps">
+            <div class="step"><div class="step-num ok">1</div><div class="step-text"><div class="step-title">Dynamic Client Registration</div><div class="step-detail">POST /register &rarr; got client_id</div></div></div>
+            <div class="step"><div class="step-num ok">2</div><div class="step-text"><div class="step-title">Authorization Code + PKCE</div><div class="step-detail">Redirected to Duo SSO &rarr; user authenticated</div></div></div>
+            <div class="step"><div class="step-num ok">3</div><div class="step-text"><div class="step-title">Callback</div><div class="step-detail">code: {{ code[:20] }}...</div></div></div>
+            {% if token_response %}
+                {% if token_response.get('body', {}).get('access_token') %}
+                    <div class="step"><div class="step-num ok">4</div><div class="step-text"><div class="step-title">Token Exchange</div><div class="step-detail">POST {{ token_response.endpoint }} &rarr; {{ token_response.status_code }}</div></div></div>
+                    <div class="step"><div class="step-num ok">5</div><div class="step-text"><div class="step-title">Bearer Token Ready</div><div class="step-detail">MCP tools on :{{ server.get('mcp_port', '?') }} are now accessible</div></div></div>
+                {% else %}
+                    <div class="step"><div class="step-num fail">4</div><div class="step-text"><div class="step-title">Token Exchange Failed</div><div class="step-detail">{{ token_response | tojson }}</div></div></div>
+                {% endif %}
             {% endif %}
-        {% endif %}
+        </div>
 
         {% if decoded_tokens %}
-            <div style="margin-top: 1.5rem;">
+        <div class="token-section">
             {% for token_name, decoded in decoded_tokens.items() %}
-                <h2>{{ token_name }} (decoded)</h2>
-                {% if decoded.get('header') %}
-                    <div class="token-label">Header</div>
-                    <pre>{{ decoded.header | tojson(indent=2) }}</pre>
-                    <div class="token-label">Payload</div>
+                <h2>{{ token_name }}</h2>
+                {% if decoded.get('payload') %}
                     <pre>{{ decoded.payload | tojson(indent=2) }}</pre>
                 {% else %}
                     <pre>{{ decoded | tojson(indent=2) }}</pre>
                 {% endif %}
             {% endfor %}
-            </div>
+        </div>
         {% endif %}
 
         {% if token_response and token_response.get('body') %}
-            <h2>Raw token response</h2>
+            <h2 style="font-size:0.75rem; color:#5a6872; margin-bottom:0.5rem; font-weight:600;">Raw Response</h2>
             <pre>{{ token_response.body | tojson(indent=2) }}</pre>
         {% endif %}
 
@@ -692,7 +772,8 @@ CALLBACK_TEMPLATE = """<!DOCTYPE html>
         <p class="error">Connection failed: {{ error }}</p>
         <pre>{{ params | tojson(indent=2) }}</pre>
     {% endif %}
-    <p style="margin-top: 1.5rem;"><a href="/">&larr; Back to Dashboard</a></p>
+    <a class="back" href="/">&larr; Back to Chat</a>
+</div>
 </body>
 </html>"""
 
@@ -701,15 +782,21 @@ JSON_TEMPLATE = """<!DOCTYPE html>
 <head>
     <title>{{ title }}</title>
     <style>
-        body { font-family: monospace; background: #0f1117; color: #e1e4e8; padding: 2rem; }
-        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; white-space: pre-wrap; }
-        a { color: #58a6ff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 12px; padding: 2rem; max-width: 800px; width: 100%; margin: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h2 { font-size: 1.1rem; color: #1b2733; margin-bottom: 1rem; font-weight: 600; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 1rem; font-size: 0.78rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; font-family: 'SF Mono', monospace; }
+        a { color: #049fd9; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
+<div class="card">
     <h2>{{ title }}</h2>
     <pre>{{ data | tojson(indent=2) }}</pre>
     <p style="margin-top: 1rem;"><a href="/">&larr; Back</a></p>
+</div>
 </body>
 </html>"""
 
@@ -719,61 +806,50 @@ EXCHANGE_TEMPLATE = """<!DOCTYPE html>
 <head>
     <title>Token Exchange - {{ src.name }} &rarr; {{ target.name }}</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #0f1117; color: #e1e4e8; padding: 2rem; max-width: 900px; }
-        h1 { margin-bottom: 0.5rem; }
-        .subtitle { color: #a371f7; font-size: 0.9rem; margin-bottom: 1.5rem; }
-        h2 { font-size: 1rem; color: #8b949e; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
-        a { color: #58a6ff; }
-        .error { color: #da3633; font-size: 1rem; margin-bottom: 1rem; }
-        .step { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
-        .step-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
-        .step-detail { font-family: monospace; font-size: 0.8rem; color: #8b949e; word-break: break-all; }
-        .step-ok { border-left: 3px solid #a371f7; }
-        .step-fail { border-left: 3px solid #da3633; }
-        .token-label { font-size: 0.85rem; font-weight: 600; color: #a371f7; margin-bottom: 0.25rem; }
-        .flow { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; padding: 1rem; background: #161b22; border-radius: 6px; flex-wrap: wrap; }
-        .flow-item { padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; }
-        .flow-source { background: #238636; color: white; }
-        .flow-arrow { color: #8b949e; font-size: 1.2rem; }
-        .flow-target { background: #1f6feb; color: white; }
-        .flow-scope { background: #a371f7; color: white; font-family: monospace; font-size: 0.8rem; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 12px; padding: 2.5rem; max-width: 700px; width: 100%; margin: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h1 { font-size: 1.25rem; color: #1b2733; margin-bottom: 0.25rem; font-weight: 600; }
+        .subtitle { color: #5a6872; font-size: 0.85rem; margin-bottom: 1.5rem; }
+        .flow { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; padding: 1rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 8px; flex-wrap: wrap; justify-content: center; }
+        .flow-item { padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.82rem; font-weight: 600; }
+        .flow-source { background: #e8f7fd; color: #049fd9; border: 1px solid #b8e6f9; }
+        .flow-arrow { color: #9aa5b1; font-size: 1.2rem; }
+        .flow-target { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .flow-scope { background: #f3e8fd; color: #7b1fa2; border: 1px solid #ce93d8; font-family: 'SF Mono', monospace; }
+        h2 { font-size: 0.75rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin: 1rem 0 0.5rem; font-weight: 700; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 1rem; font-size: 0.72rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 0.75rem; font-family: 'SF Mono', monospace; }
+        .error { color: #ff5252; margin-bottom: 1rem; font-weight: 500; }
+        .result-ok { color: #00c853; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 500; }
+        .result-fail { color: #ff5252; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 500; }
+        a { color: #049fd9; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <h1>RFC 8693 Token Exchange</h1>
-    <p class="subtitle">{{ src.icon }} {{ src.name }} &rarr; {{ target.icon }} {{ target.name }}</p>
+<div class="card">
+    <h1>Token Exchange</h1>
+    <p class="subtitle">RFC 8693: {{ src.icon }} {{ src.name }} &rarr; {{ target.icon }} {{ target.name }}</p>
 
     <div class="flow">
-        <span class="flow-item flow-source">{{ src.icon }} {{ src.name }}</span>
+        <span class="flow-item flow-source">{{ src.icon }} {{ src.name.replace(' MCP Server', '') }}</span>
         <span class="flow-arrow">&rarr;</span>
         <span class="flow-item flow-scope">read:calendar</span>
         <span class="flow-arrow">&rarr;</span>
-        <span class="flow-item flow-target">{{ target.icon }} {{ target.name }}</span>
+        <span class="flow-item flow-target">{{ target.icon }} {{ target.name.replace(' MCP Server', '') }}</span>
     </div>
 
     {% if error %}
         <p class="error">{{ error }}</p>
     {% elif exchange_result %}
-        <div class="step step-ok">
-            <div class="step-title">Token Exchange Request</div>
-            <div class="step-detail">POST {{ exchange_result.endpoint }}</div>
-        </div>
-
-        <h2>Request payload</h2>
+        <h2>Request</h2>
         <pre>{{ exchange_result.request | tojson(indent=2) }}</pre>
 
         {% if exchange_result.get('status_code') %}
             {% if exchange_result.get('response', {}).get('access_token') %}
-                <div class="step step-ok">
-                    <div class="step-title">Exchange successful ({{ exchange_result.status_code }})</div>
-                    <div class="step-detail">Got new access_token scoped to {{ target.name }}</div>
-                </div>
+                <p class="result-ok">Exchange successful ({{ exchange_result.status_code }})</p>
             {% else %}
-                <div class="step step-fail">
-                    <div class="step-title">Exchange returned {{ exchange_result.status_code }}</div>
-                    <div class="step-detail">{{ exchange_result.get('response', exchange_result.get('response_raw', '')) | tojson }}</div>
-                </div>
+                <p class="result-fail">Exchange returned {{ exchange_result.status_code }}</p>
             {% endif %}
 
             {% if exchange_result.get('response') %}
@@ -783,15 +859,13 @@ EXCHANGE_TEMPLATE = """<!DOCTYPE html>
         {% endif %}
 
         {% if exchanged_decoded and exchanged_decoded.get('access_token') %}
-            <h2>Exchanged access_token (decoded)</h2>
-            <div class="token-label">Header</div>
-            <pre>{{ exchanged_decoded.access_token.header | tojson(indent=2) }}</pre>
-            <div class="token-label">Payload</div>
+            <h2>Decoded Token</h2>
             <pre>{{ exchanged_decoded.access_token.payload | tojson(indent=2) }}</pre>
         {% endif %}
     {% endif %}
 
-    <p style="margin-top: 1.5rem;"><a href="/">&larr; Back to Dashboard</a></p>
+    <p style="margin-top: 1.5rem;"><a href="/">&larr; Back to Chat</a></p>
+</div>
 </body>
 </html>"""
 
