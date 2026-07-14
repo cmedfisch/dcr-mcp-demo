@@ -474,22 +474,13 @@ CONFIG_TEMPLATE = """<!DOCTYPE html>
             </form>
             {% if server.issuer %}
             <div class="info-block">
-                <div class="info-label">Derived Endpoints (from issuer)</div>
-                <div class="info-row">OAuth Metadata: {{ server.issuer | replace(server.issuer.split('/')[-1], '') }}../../.well-known/oauth-authorization-server{{ server.issuer | replace(server.issuer.split('://')[0] + '://' + server.issuer.split('/')[2], '') }}</div>
-                <div class="info-row">OIDC Discovery: {{ server.issuer }}/.well-known/openid-configuration</div>
-                <div class="info-row">DCR Registration: {{ server.issuer }}/register</div>
-                <div class="info-row">Token Endpoint: {{ server.issuer }}/token</div>
+                <div class="info-label">Endpoints &amp; URIs</div>
+                <div class="info-row">Resource URI: {{ server.resource_uri }}</div>
+                <div class="info-row">Discovery: http://localhost:{{ server.mcp_port }}/.well-known/oauth-protected-resource</div>
+                <div class="info-row">DCR: {{ server.issuer }}/register</div>
                 <div class="info-row">Authorize: {{ server.issuer }}/authorize</div>
-            </div>
-            <div class="info-block">
-                <div class="info-label">Protected Resource Metadata (RFC 9728) &mdash; {{ server.name }}</div>
-                <div class="info-row">http://localhost:{{ server.mcp_port }}/.well-known/oauth-protected-resource</div>
-                <div class="info-row" style="color:#049fd9;">Resource URI: {{ server.resource_uri }}</div>
-            </div>
-            <div class="info-block">
-                <div class="info-label">Required Scopes for {{ server.name }}</div>
-                <div class="info-row">{{ server.scopes | join(' ') }}</div>
-                <div class="info-row" style="color:#5a6872; font-style:italic; font-family:inherit;">Both chatbot portal and Claude Code request these scopes during authorization</div>
+                <div class="info-row">Token: {{ server.issuer }}/token</div>
+                <div class="info-row">Scopes: {{ server.scopes | join(' ') }}</div>
             </div>
             <div class="redirect-block">
                 <h4>Required Redirect URIs for {{ server.name }} (Duo Admin Panel)</h4>
@@ -569,12 +560,19 @@ TEMPLATE = """<!DOCTYPE html>
         .input-row button:hover { background: #037fb3; }
         .input-row button:disabled { background: #d2d8de; color: #9aa5b1; cursor: not-allowed; }
         .input-row input:disabled { background: #eef1f3; }
-        .info-section { margin: 0.75rem 0; padding: 0.85rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; }
-        .info-section h4 { font-size: 0.65rem; color: #049fd9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; font-weight: 700; }
-        .info-section pre { font-size: 0.7rem; color: #1b2733; line-height: 1.6; white-space: pre-wrap; word-break: break-all; font-family: 'SF Mono', monospace; }
-        .info-section .row { display: flex; justify-content: space-between; font-size: 0.7rem; padding: 0.15rem 0; }
-        .info-section .row .label { color: #5a6872; }
-        .info-section .row .value { color: #1b2733; font-family: 'SF Mono', monospace; font-size: 0.68rem; }
+        .info-section { margin: 0.5rem 0; padding: 0.7rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; }
+        .info-section pre { font-size: 0.7rem; color: #1b2733; line-height: 1.6; white-space: pre-wrap; word-break: break-all; font-family: 'SF Mono', monospace; margin: 0; }
+        .connect-card .port { font-size: 0.68rem; color: #7b8fa3; margin-bottom: 0.3rem; font-family: 'SF Mono', monospace; }
+        .reference-panel { max-width: 680px; margin: 0.75rem 0; background: #fff; border: 1px solid #e0e5e9; border-radius: 8px; font-size: 0.78rem; }
+        .reference-panel summary { padding: 0.7rem 1rem; cursor: pointer; color: #049fd9; font-weight: 600; font-size: 0.78rem; }
+        .reference-panel summary:hover { background: #f7f9fb; }
+        .reference-panel[open] summary { border-bottom: 1px solid #e0e5e9; }
+        .ref-table { width: 100%; border-collapse: collapse; padding: 0.5rem; }
+        .ref-table th { text-align: left; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; color: #5a6872; padding: 0.5rem 0.75rem; border-bottom: 1px solid #eef1f3; }
+        .ref-table td { padding: 0.4rem 0.75rem; font-size: 0.72rem; border-bottom: 1px solid #f5f6f7; }
+        .ref-table code { background: #f0f4f8; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.68rem; }
+        .ref-note { padding: 0.5rem 0.75rem; font-size: 0.7rem; color: #5a6872; border-top: 1px solid #eef1f3; }
+        .ref-note code { background: #f0f4f8; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.68rem; }
     </style>
 </head>
 <body>
@@ -626,9 +624,7 @@ TEMPLATE = """<!DOCTYPE html>
             <div class="msg system">
                 <div class="msg-label">System</div>
                 <div class="msg-bubble">
-                    Welcome to the MCP Agent Portal. This chatbot connects to 3 MCP servers via OAuth Dynamic Client Registration.
-                    Both this portal and Claude Code authenticate through Duo SSO before accessing any tools.
-                    Connect to a server below to begin.
+                    Connect to an MCP server below. Both this portal and Claude Code authenticate through Duo SSO via Dynamic Client Registration.
                 </div>
             </div>
 
@@ -637,13 +633,14 @@ TEMPLATE = """<!DOCTYPE html>
                 <div class="connect-card">
                     <div class="icon">{{ server.icon }}</div>
                     <div class="name">{{ server.name.replace(' MCP Server', '') }}</div>
+                    <div class="port">:{{ server.mcp_port }}</div>
                     {% if id in registrations and registrations[id].get('token_response', {}).get('body', {}).get('access_token') %}
                         <div class="status ok">Connected</div>
                         <form method="POST" action="/connect/{{ id }}" style="display:inline">
                             <button class="btn btn-reconnect" type="submit">Reconnect</button>
                         </form>
                     {% elif server.issuer %}
-                        <div class="status pending">Ready to connect</div>
+                        <div class="status pending">Ready</div>
                         <form method="POST" action="/connect/{{ id }}" style="display:inline">
                             <button class="btn btn-connect" type="submit">Connect</button>
                         </form>
@@ -661,53 +658,35 @@ TEMPLATE = """<!DOCTYPE html>
             </div>
 
             <div class="msg bot">
-                <div class="msg-label">Agent Portal</div>
+                <div class="msg-label">Claude Code Setup</div>
                 <div class="msg-bubble">
-                    <strong>Add servers to Claude Code:</strong>
                     <div class="info-section">
-                        <h4>Commands</h4>
                         <pre>claude mcp add dcr-calendar --transport http http://localhost:3001/mcp
 claude mcp add dcr-documents --transport http http://localhost:3002/mcp
 claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
                     </div>
-                    Claude Code hits the MCP server, gets a 401, discovers the authorization server via RFC 9728, registers via DCR, opens a browser for Duo auth, then retries with the Bearer token.
                 </div>
             </div>
 
-            <div class="msg bot">
-                <div class="msg-label">Agent Portal</div>
-                <div class="msg-bubble">
-                    <strong>Duo Admin: Redirect URIs, Resource URIs &amp; Scopes</strong>
-                    <div class="info-section">
-                        <h4>Redirect URIs per Server (Chatbot Portal)</h4>
-                        <div class="row"><span class="label">Calendar (:3001)</span><span class="value">http://localhost:8080/callback/calendar</span></div>
-                        <div class="row"><span class="label">Documents (:3002)</span><span class="value">http://localhost:8080/callback/documents</span></div>
-                        <div class="row"><span class="label">Analytics (:3003)</span><span class="value">http://localhost:8080/callback/analytics</span></div>
-                    </div>
-                    <div class="info-section">
-                        <h4>Redirect URIs (Claude Code / MCP SDK &mdash; all servers)</h4>
-                        <pre>http://127.0.0.1/callback
-http://localhost/callback</pre>
-                    </div>
-                    <div class="info-section">
-                        <h4>Resource URIs (what the token protects)</h4>
-                        <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/</span></div>
-                        <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/</span></div>
-                        <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/</span></div>
-                    </div>
-                    <div class="info-section">
-                        <h4>Resource Metadata Discovery (RFC 9728)</h4>
-                        <div class="row"><span class="label">Calendar</span><span class="value">http://localhost:3001/.well-known/oauth-protected-resource</span></div>
-                        <div class="row"><span class="label">Documents</span><span class="value">http://localhost:3002/.well-known/oauth-protected-resource</span></div>
-                        <div class="row"><span class="label">Analytics</span><span class="value">http://localhost:3003/.well-known/oauth-protected-resource</span></div>
-                    </div>
-                    <div class="info-section">
-                        <h4>Required Scopes (all servers)</h4>
-                        <pre>openid email profile</pre>
-                        <div style="font-size:0.68rem; color:#5a6872; margin-top:0.3rem;">Both the chatbot portal and Claude Code request these during the OAuth authorization request.</div>
-                    </div>
+            <details class="reference-panel">
+                <summary>Duo Admin Reference (Redirect URIs, Resources, Scopes)</summary>
+                <table class="ref-table">
+                    <thead><tr><th>Server</th><th>Resource URI</th><th>Portal Redirect</th><th>Scopes</th></tr></thead>
+                    <tbody>
+                        {% for id, server in servers.items() %}
+                        <tr>
+                            <td>{{ server.icon }} {{ server.name.replace(' MCP Server', '') }} (:{{ server.mcp_port }})</td>
+                            <td><code>http://localhost:{{ server.mcp_port }}/</code></td>
+                            <td><code>http://localhost:8080/callback/{{ id }}</code></td>
+                            <td><code>openid email profile</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="ref-note">
+                    Claude Code redirect (all servers): <code>http://127.0.0.1/callback</code> &amp; <code>http://localhost/callback</code>
                 </div>
-            </div>
+            </details>
 
             {% if registrations %}
             {% for id, reg in registrations.items() %}
