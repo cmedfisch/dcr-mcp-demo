@@ -38,22 +38,25 @@ A demo showing **OAuth 2.0 Dynamic Client Registration (RFC 7591)** with Duo SSO
 git clone https://github.com/cmedfisch/dcr-mcp-demo.git
 cd dcr-mcp-demo
 
-# Setup
+# 1. Install dependencies
 ./setup.sh
 
-# Configure issuers in config.json
-# (or use the web UI at /config)
+# 2. Configure issuers BEFORE starting servers
+cp config.json.example config.json
+# Edit config.json — replace placeholder issuers with your real Duo SSO URLs
 
-# Start MCP servers (all 3)
+# 3. Start MCP servers (all 3)
 .venv/bin/python3 servers.py --all
 
-# Start chatbot portal
+# 4. Start chatbot portal
 .venv/bin/python3 app.py
 ```
 
+> **Important:** You must configure `config.json` with valid Duo SSO issuer URLs _before_ starting the MCP servers. The servers read the config at startup and serve the issuer in their `/.well-known/oauth-protected-resource` response. Without valid issuers, clients will attempt DCR against `https://example.com` and fail. If you change the config after starting, restart the servers.
+
 ## Configuration
 
-Edit `config.json` to set the Duo SSO issuer for each server:
+Edit `config.json` to set the Duo SSO issuer for each server (one issuer per integration):
 
 ```json
 {
@@ -69,7 +72,9 @@ Edit `config.json` to set the Duo SSO issuer for each server:
 }
 ```
 
-You can also configure issuers via the web UI at http://localhost:8080/config.
+Each server needs its own issuer URL (different IKEY) from a separate Duo SSO integration.
+
+You can also configure issuers via the web UI at http://localhost:8080/config, but you must restart the MCP servers afterward for changes to take effect.
 
 ## Add to Claude Code
 
