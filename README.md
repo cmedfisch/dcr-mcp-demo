@@ -1,128 +1,164 @@
 # DCR Demo: MCP Servers + Duo SSO
 
-A lightweight demo showing **OAuth 2.0 Dynamic Client Registration (RFC 7591)** with Duo SSO. Three fake MCP servers each register themselves as public OAuth clients, then authenticate users via Authorization Code + PKCE.
+A demo showing **OAuth 2.0 Dynamic Client Registration (RFC 7591)** with Duo SSO for MCP server authentication. Three MCP servers run over HTTP with full OAuth auth gates — both a chatbot web portal and Claude Code must authenticate via Duo before accessing any tools.
 
-## What it does
+## Architecture
 
-1. You configure an **issuer URL** per MCP server (e.g., `https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXX`)
-2. The app derives the 3 endpoints automatically:
-   - `.well-known/oauth-authorization-server/...` (OAuth metadata)
-   - `.well-known/openid-configuration` (OIDC discovery)
-   - `/register` (DCR endpoint)
-3. Click **Connect** — the app registers via DCR, then bounces you to Duo for auth
-4. After authentication, it exchanges the code for tokens and **decodes the JWT** (access_token + id_token)
+```
+┌──────────────────────────┐      ┌────────────────────────┐
+│   Chatbot Portal (:8080) │      │   Claude Code / Codex  │
+│   (this web app)         │      │   (MCP client)         │
+└──────────┬───────────────┘      └──────────┬─────────────┘
+           │                                  │
+           │  HTTP + Bearer token             │  HTTP + Bearer token
+           │                                  │
+    ┌──────┴──────┬──────────────┬────────────┴───────┐
+    │             │              │                     │
+    ▼             ▼              ▼                     │
+┌────────┐  ┌──────────┐  ┌───────────┐              │
+│Calendar│  │ Documents│  │ Analytics │              │
+│  :3001 │  │   :3002  │  │   :3003   │              │
+└───┬────┘  └────┬─────┘  └─────┬─────┘              │
+    │             │              │                     │
+    └─────────────┴──────────────┴─────────────────────┘
+                         │
+                    401 → RFC 9728
+                    → Discover Duo AS
+                    → DCR → PKCE → Token
+                         │
+                    ┌────▼────┐
+                    │ Duo SSO │
+                    │ (AS)    │
+                    └─────────┘
+```
 
 ## Quick start
 
 ```bash
-# Clone
 git clone https://github.com/cmedfisch/dcr-mcp-demo.git
 cd dcr-mcp-demo
 
-# Setup (creates venv, installs deps)
+# Setup
 ./setup.sh
 
-# Run
+# Configure issuers in config.json
+# (or use the web UI at /config)
+
+# Start MCP servers (all 3)
+.venv/bin/python3 servers.py --all
+
+# Start chatbot portal
 .venv/bin/python3 app.py
 ```
 
-Open http://localhost:8080 → go to `/config` → paste your issuer URL → hit Connect.
+## Configuration
 
-## Manual setup
+Edit `config.json` to set the Duo SSO issuer for each server:
+
+```json
+{
+  "calendar": {
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXX"
+  },
+  "documents": {
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXX"
+  },
+  "analytics": {
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXX"
+  }
+}
+```
+
+You can also configure issuers via the web UI at http://localhost:8080/config.
+
+## Add to Claude Code
+
+Once the MCP servers are running (`python3 servers.py --all`):
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install flask requests httpx "mcp[cli]"
-python3 app.py
+claude mcp add dcr-calendar --transport http http://localhost:3001/mcp
+claude mcp add dcr-documents --transport http http://localhost:3002/mcp
+claude mcp add dcr-analytics --transport http http://localhost:3003/mcp
 ```
+
+Claude Code will automatically:
+1. Hit the MCP server → get 401
+2. Discover the authorization server via `/.well-known/oauth-protected-resource` (RFC 9728)
+3. Register via DCR with Duo
+4. Open a browser for user authentication
+5. Exchange the code for a Bearer token
+6. Retry with the token → tools are now visible
 
 ## Duo Admin Setup — Redirect URIs
 
-DCR clients register their own redirect URIs, but you need to ensure the Duo SSO application allows these callback URLs. Add the following to your Duo SSO OAuth Server app's allowed redirect URIs:
+Add these to your Duo SSO application's allowed redirect URIs:
 
-**Web app (port 8080):**
+**Chatbot portal (port 8080):**
 ```
 http://localhost:8080/callback/calendar
 http://localhost:8080/callback/documents
 http://localhost:8080/callback/analytics
 ```
 
-**MCP server via Claude Code (port 3000):**
+**Claude Code (MCP client SDK):**
 ```
-http://localhost:3000/callback
-```
-
-These are the defaults. If you change the port (`PORT` env var) or use a custom redirect_uri in the MCP tools, update accordingly.
-
-## Claude Code integration
-
-Each MCP server can also run as a stdio MCP server for direct Claude Code integration:
-
-```bash
-claude mcp add dcr-calendar -e DUO_SSO_ISSUER="https://sso-xxx.sso.duosecurity.com/oauth2/DIXXXXXXXXXX" -- /path/to/.venv/bin/python3 /path/to/mcp_server.py --server calendar
-claude mcp add dcr-documents -e DUO_SSO_ISSUER="https://sso-xxx.sso.duosecurity.com/oauth2/DIXXXXXXXXXX" -- /path/to/.venv/bin/python3 /path/to/mcp_server.py --server documents
-claude mcp add dcr-analytics -e DUO_SSO_ISSUER="https://sso-xxx.sso.duosecurity.com/oauth2/DIXXXXXXXXXX" -- /path/to/.venv/bin/python3 /path/to/mcp_server.py --server analytics
+http://localhost/callback
+http://127.0.0.1/callback
 ```
 
-The MCP server registers with a distinct `client_name` (appends `(MCP)`) and uses port 3000 for callbacks, so it won't collide with the web app's registrations.
+## How DCR works
 
-### MCP server tools
-
-| Tool | Description |
-|------|-------------|
-| `discover_duo_endpoints` | Fetch OIDC discovery document |
-| `register_client` | Perform DCR registration |
-| `get_registration` | Show current registration details |
-| `generate_auth_url` | Generate authorize URL with PKCE |
-| `reset_registration` | Clear registration state (start fresh) |
-| `server_info` | Show server identity and status |
-
-## The 3 MCP servers
-
-| Server | Description | Web client_name | MCP client_name |
-|--------|-------------|-----------------|-----------------|
-| Calendar | Manages calendar events and scheduling | `Calendar MCP Server` | `Calendar MCP Server (MCP)` |
-| Documents | File storage and document management | `Documents MCP Server` | `Documents MCP Server (MCP)` |
-| Analytics | Usage metrics and reporting dashboard | `Analytics MCP Server` | `Analytics MCP Server (MCP)` |
-
-## How DCR works in this demo
+The `client_name` in the DCR registration payload is the agent's identity string. Duo admins configure **DCR matching rules** (EXACT or PARTIAL) that bind agents to Agent Classes based on this value.
 
 ```
-MCP Server                          Duo SSO
-    |                                  |
-    |--- POST /register -------------->|  (client_name, redirect_uris)
-    |<-- 201 {client_id} --------------|
-    |                                  |
-    |--- GET /authorize?client_id&pkce>|  (redirect user to Duo)
-    |       [user authenticates]       |
-    |<-- redirect callback?code -------|
-    |                                  |
-    |--- POST /token (code+verifier)-->|
-    |<-- {access_token, id_token} -----|
+Agent                               Duo SSO
+  |                                    |
+  |--- POST /register --------------->|  { "client_name": "Calendar MCP Server", ... }
+  |<-- 201 { client_id } -------------|
+  |                                    |
+  |--- GET /authorize?client_id&pkce->|  (user authenticates in browser)
+  |<-- redirect ?code ----------------|
+  |                                    |
+  |--- POST /token (code+verifier) -->|
+  |<-- { access_token, id_token } ----|
+  |                                    |
+  |=== Bearer token → MCP tools ===   |
 ```
 
-## How Duo matches agents via DCR
+## The 3 MCP Servers
 
-The `client_name` in the DCR registration payload is what Duo uses to identify and bind the agent. In the Duo Admin Panel, admins configure **DCR matching rules** — either EXACT or PARTIAL string matches against the `client_name`. When an MCP server registers with a `client_name` like `"Calendar MCP Server"`, Duo matches it against these rules to determine which Agent Class it belongs to, which controls the permissions and policies applied to that agent.
-
-This means the `client_name` you send in the DCR request is effectively the **agent's identity string** — it's how Duo knows what this thing is and what it's allowed to do.
-
-## Session management
-
-- **Web app:** "Clear All Sessions" in the nav bar resets everything. Per-server "Clear" buttons let you re-register individual servers.
-- **MCP server:** Use the `reset_registration` tool to clear state and register fresh.
+| Server | Port | Tools |
+|--------|------|-------|
+| Calendar | 3001 | list_events, get_event, create_event, check_availability |
+| Documents | 3002 | list_documents, get_document, search_documents, upload_document, list_folders |
+| Analytics | 3003 | get_metrics, get_audit_log, get_dashboard_summary, query_usage |
 
 ## Token Exchange (RFC 8693) — optional
 
-The demo includes an optional token exchange flow where the Documents MCP server can exchange its access token for a `read:calendar` scoped token from the Calendar MCP server. This requires a **confidential client** (with `client_secret`) — DCR creates public clients only, so token exchange will return a 401 unless you use a static client configured in the Duo Admin Panel.
+The chatbot portal includes an optional token exchange flow where one server's access token can be exchanged for a differently-scoped token. This requires a **confidential client** — DCR creates public clients only, so token exchange will return 401 unless you use a static client configured in Duo Admin.
 
 ## Files
 
-- `app.py` — Web dashboard (Flask). Configure, register, and authenticate.
-- `mcp_server.py` — Stdio MCP server for Claude Code integration.
-- `setup.sh` — One-liner setup script.
-- `requirements.txt` — Python dependencies.
+- `servers.py` — 3 HTTP MCP servers with OAuth auth gates
+- `app.py` — Chatbot portal (Flask web app)
+- `config.json` — Issuer configuration per server
+- `setup.sh` — One-liner setup script
+- `requirements.txt` — Python dependencies
+- `mcp_server.py` — Legacy stdio MCP server (kept for reference)
+
+## Stopping the servers
+
+Use `Ctrl+C` in each terminal to stop cleanly. If ports are stuck:
+
+```bash
+# Find and kill processes on the demo ports
+lsof -ti:3001,3002,3003,8080 | xargs kill -9
+```
+
+Or kill just the MCP servers:
+```bash
+lsof -ti:3001,3002,3003 | xargs kill -9
+```
 
 ## Requirements
 

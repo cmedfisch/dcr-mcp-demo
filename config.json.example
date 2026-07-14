@@ -1,0 +1,11 @@
+{
+  "calendar": {
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX"
+  },
+  "documents": {
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX"
+  },
+  "analytics": {
+    "issuer": "https://sso-xxx.test.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX"
+  }
+}
