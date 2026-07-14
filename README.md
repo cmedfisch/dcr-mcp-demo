@@ -133,10 +133,6 @@ Agent                               Duo SSO
 | Documents | 3002 | list_documents, get_document, search_documents, upload_document, list_folders |
 | Analytics | 3003 | get_metrics, get_audit_log, get_dashboard_summary, query_usage |
 
-## Token Exchange (RFC 8693) — optional
-
-The chatbot portal includes an optional token exchange flow where one server's access token can be exchanged for a differently-scoped token. This requires a **confidential client** — DCR creates public clients only, so token exchange will return 401 unless you use a static client configured in Duo Admin.
-
 ## Files
 
 - `servers.py` — 3 HTTP MCP servers with OAuth auth gates
