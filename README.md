@@ -89,9 +89,33 @@ Claude Code will automatically:
 5. Exchange the code for a Bearer token
 6. Retry with the token → tools are now visible
 
-## Duo Admin Setup — Redirect URIs
+## Duo Admin Setup
 
-Add these to your Duo SSO application's allowed redirect URIs:
+This demo requires **3 SSO integrations** (one per MCP server) and **3 custom agents** registered in the Agent Directory. See the [Duo MCP OAuth guide](https://duo.com/docs/sso-oauth-server-mcp) for full setup instructions.
+
+### Integrations (Duo Admin → Single Sign-On)
+
+Create one SSO integration for each server. Each produces its own issuer URL (the IKEY at the end differs):
+
+| Integration | Protects | Issuer pattern |
+|-------------|----------|----------------|
+| Calendar MCP Server | `:3001` | `https://sso-xxx.../oauth2/DI_CALENDAR_IKEY` |
+| Documents MCP Server | `:3002` | `https://sso-xxx.../oauth2/DI_DOCUMENTS_IKEY` |
+| Analytics MCP Server | `:3003` | `https://sso-xxx.../oauth2/DI_ANALYTICS_IKEY` |
+
+### Agent Directory (Duo Admin → Agents)
+
+Register 3 agents — one per server. The `client_name` sent during DCR must match the agent's DCR matching rule (EXACT or PARTIAL):
+
+| Agent Name | DCR Match | Binds To |
+|------------|-----------|----------|
+| Calendar MCP Server | EXACT | Calendar integration |
+| Documents MCP Server | EXACT | Documents integration |
+| Analytics MCP Server | EXACT | Analytics integration |
+
+### Redirect URIs
+
+Add these to each integration's allowed redirect URIs:
 
 **Chatbot portal (port 8080):**
 ```
@@ -132,10 +156,6 @@ Agent                               Duo SSO
 | Calendar | 3001 | list_events, get_event, create_event, check_availability |
 | Documents | 3002 | list_documents, get_document, search_documents, upload_document, list_folders |
 | Analytics | 3003 | get_metrics, get_audit_log, get_dashboard_summary, query_usage |
-
-## Token Exchange (RFC 8693) — optional
-
-The chatbot portal includes an optional token exchange flow where one server's access token can be exchanged for a differently-scoped token. This requires a **confidential client** — DCR creates public clients only, so token exchange will return 401 unless you use a static client configured in Duo Admin.
 
 ## Files
 
