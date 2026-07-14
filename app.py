@@ -566,6 +566,12 @@ TEMPLATE = """<!DOCTYPE html>
         .info-section { margin: 0.5rem 0; padding: 0.7rem; background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; }
         .info-section pre { font-size: 0.7rem; color: #1b2733; line-height: 1.6; white-space: pre-wrap; word-break: break-all; font-family: 'SF Mono', monospace; margin: 0; }
         .connect-card .port { font-size: 0.68rem; color: #7b8fa3; margin-bottom: 0.3rem; font-family: 'SF Mono', monospace; }
+        .sample-questions { display: flex; gap: 0.5rem; flex-wrap: wrap; max-width: 680px; margin: 0.75rem 0; }
+        .sample-q { padding: 0.5rem 1rem; border-radius: 18px; border: 1px solid #049fd9; background: #fff; color: #049fd9; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+        .sample-q:hover { background: #049fd9; color: #fff; }
+        .sample-q.asked { background: #049fd9; color: #fff; opacity: 0.7; cursor: default; }
+        .answer-block { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .reference-panel { max-width: 680px; margin: 0.75rem 0; background: #fff; border: 1px solid #e0e5e9; border-radius: 8px; font-size: 0.78rem; }
         .reference-panel summary { padding: 0.7rem 1rem; cursor: pointer; color: #049fd9; font-weight: 600; font-size: 0.78rem; }
         .reference-panel summary:hover { background: #f7f9fb; }
@@ -697,14 +703,25 @@ claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
             {% endfor %}
 
             {% if connected_count | length == 3 %}
-            <div class="msg user">
-                <div class="msg-label">You</div>
-                <div class="msg-bubble">What's on my calendar this week?</div>
+            <div class="msg system">
+                <div class="msg-label">System</div>
+                <div class="msg-bubble">All 3 servers connected. Try a question:</div>
             </div>
-            <div class="msg bot">
-                <div class="msg-label">Agent &middot; Calendar :3001</div>
-                <div class="msg-bubble">
-                    <div class="info-section"><pre>{
+            <div class="sample-questions">
+                <button class="sample-q" onclick="askQuestion(this)" data-target="answer-calendar">What's on my calendar this week?</button>
+                <button class="sample-q" onclick="askQuestion(this)" data-target="answer-docs">Find any docs about MCP auth</button>
+                <button class="sample-q" onclick="askQuestion(this)" data-target="answer-analytics">Show me today's auth metrics</button>
+            </div>
+
+            <div id="answer-calendar" class="answer-block" style="display:none;">
+                <div class="msg user">
+                    <div class="msg-label">You</div>
+                    <div class="msg-bubble">What's on my calendar this week?</div>
+                </div>
+                <div class="msg bot">
+                    <div class="msg-label">via Calendar MCP</div>
+                    <div class="msg-bubble">
+                        <div class="info-section"><pre>{
   "events": [
     {"id": "evt-001", "title": "Sprint Planning", "date": "2026-07-14", "time": "09:00", "duration": "60m", "attendees": ["alice@acme.com", "bob@acme.com", "colin@acme.com"]},
     {"id": "evt-002", "title": "1:1 with Manager", "date": "2026-07-14", "time": "14:00", "duration": "30m", "attendees": ["colin@acme.com", "dana@acme.com"]},
@@ -714,36 +731,40 @@ claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
   ],
   "count": 5
 }</pre></div>
-                    You have 5 meetings this week. Busiest day is Monday with Sprint Planning and your 1:1.
+                        You have 5 meetings this week. Busiest day is Monday with Sprint Planning and your 1:1.
+                    </div>
                 </div>
             </div>
 
-            <div class="msg user">
-                <div class="msg-label">You</div>
-                <div class="msg-bubble">Find any docs about MCP auth</div>
-            </div>
-            <div class="msg bot">
-                <div class="msg-label">Agent &middot; Documents :3002</div>
-                <div class="msg-bubble">
-                    <div class="info-section"><pre>{
+            <div id="answer-docs" class="answer-block" style="display:none;">
+                <div class="msg user">
+                    <div class="msg-label">You</div>
+                    <div class="msg-bubble">Find any docs about MCP auth</div>
+                </div>
+                <div class="msg bot">
+                    <div class="msg-label">via Documents MCP</div>
+                    <div class="msg-bubble">
+                        <div class="info-section"><pre>{
   "query": "MCP auth",
   "results": [
     {"id": "doc-002", "name": "Architecture Decision Record - MCP Auth.md", "folder": "/engineering", "size": "18 KB", "modified": "2026-07-12", "owner": "colin@acme.com"}
   ],
   "count": 1
 }</pre></div>
-                    Found 1 result: <strong>Architecture Decision Record - MCP Auth.md</strong> in /engineering, last modified July 12.
+                        Found 1 result: <strong>Architecture Decision Record - MCP Auth.md</strong> in /engineering, last modified July 12.
+                    </div>
                 </div>
             </div>
 
-            <div class="msg user">
-                <div class="msg-label">You</div>
-                <div class="msg-bubble">Show me today's auth metrics</div>
-            </div>
-            <div class="msg bot">
-                <div class="msg-label">Agent &middot; Analytics :3003</div>
-                <div class="msg-bubble">
-                    <div class="info-section"><pre>{
+            <div id="answer-analytics" class="answer-block" style="display:none;">
+                <div class="msg user">
+                    <div class="msg-label">You</div>
+                    <div class="msg-bubble">Show me today's auth metrics</div>
+                </div>
+                <div class="msg bot">
+                    <div class="msg-label">via Analytics MCP</div>
+                    <div class="msg-bubble">
+                        <div class="info-section"><pre>{
   "summary": {
     "users_today": 1247,
     "auth_attempts": 8934,
@@ -757,7 +778,8 @@ claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
     {"timestamp": "2026-07-13T09:20:00Z", "event": "token_exchange", "actor": "Documents MCP Server", "result": "denied"}
   ]
 }</pre></div>
-                    1,247 active users today with 98.7% MFA success rate. 23 DCR registrations this week. Latency is 243ms avg.
+                        1,247 active users today with 98.7% MFA success rate. 23 DCR registrations this week. Latency is 243ms avg.
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -783,6 +805,17 @@ claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
         </div>
     </div>
 </div>
+<script>
+function askQuestion(btn) {
+    if (btn.classList.contains('asked')) return;
+    btn.classList.add('asked');
+    var target = document.getElementById(btn.getAttribute('data-target'));
+    if (target) {
+        target.style.display = 'block';
+        target.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    }
+}
+</script>
 </body>
 </html>"""
 
