@@ -533,6 +533,9 @@ TEMPLATE = """<!DOCTYPE html>
         .msg { max-width: 680px; margin-bottom: 1.25rem; }
         .msg-bubble { padding: 1rem 1.25rem; border-radius: 10px; font-size: 0.83rem; line-height: 1.6; }
         .msg.system .msg-bubble { background: #fff; border: 1px solid #e0e5e9; color: #5a6872; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .msg.user { display: flex; flex-direction: column; align-items: flex-end; }
+        .msg.user .msg-bubble { background: #049fd9; color: #fff; border-radius: 10px 10px 4px 10px; display: inline-block; }
+        .msg.user .msg-label { text-align: right; }
         .msg.bot .msg-bubble { background: #fff; border: 1px solid #e0e5e9; color: #1b2733; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border-left: 3px solid #049fd9; }
         .msg-label { font-size: 0.65rem; color: #7b8fa3; margin-bottom: 0.3rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .connect-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 1rem 0; }
@@ -687,6 +690,77 @@ claude mcp add dcr-analytics --transport http http://localhost:3003/mcp</pre>
                     Claude Code redirect (all servers): <code>http://127.0.0.1/callback</code> &amp; <code>http://localhost/callback</code>
                 </div>
             </details>
+
+            {% set connected_count = [] %}
+            {% for id, reg in registrations.items() if reg.get('token_response', {}).get('body', {}).get('access_token') %}
+                {% if connected_count.append(1) %}{% endif %}
+            {% endfor %}
+
+            {% if connected_count | length == 3 %}
+            <div class="msg user">
+                <div class="msg-label">You</div>
+                <div class="msg-bubble">What's on my calendar this week?</div>
+            </div>
+            <div class="msg bot">
+                <div class="msg-label">Agent &middot; Calendar :3001</div>
+                <div class="msg-bubble">
+                    <div class="info-section"><pre>{
+  "events": [
+    {"id": "evt-001", "title": "Sprint Planning", "date": "2026-07-14", "time": "09:00", "duration": "60m", "attendees": ["alice@acme.com", "bob@acme.com", "colin@acme.com"]},
+    {"id": "evt-002", "title": "1:1 with Manager", "date": "2026-07-14", "time": "14:00", "duration": "30m", "attendees": ["colin@acme.com", "dana@acme.com"]},
+    {"id": "evt-003", "title": "Security Review", "date": "2026-07-15", "time": "10:00", "duration": "45m", "attendees": ["colin@acme.com", "infosec@acme.com"]},
+    {"id": "evt-004", "title": "Demo Day", "date": "2026-07-16", "time": "15:00", "duration": "60m", "attendees": ["team-all@acme.com"]},
+    {"id": "evt-005", "title": "Vendor Sync - Duo SSO", "date": "2026-07-17", "time": "11:00", "duration": "30m", "attendees": ["colin@acme.com", "vendor@partner.io"]}
+  ],
+  "count": 5
+}</pre></div>
+                    You have 5 meetings this week. Busiest day is Monday with Sprint Planning and your 1:1.
+                </div>
+            </div>
+
+            <div class="msg user">
+                <div class="msg-label">You</div>
+                <div class="msg-bubble">Find any docs about MCP auth</div>
+            </div>
+            <div class="msg bot">
+                <div class="msg-label">Agent &middot; Documents :3002</div>
+                <div class="msg-bubble">
+                    <div class="info-section"><pre>{
+  "query": "MCP auth",
+  "results": [
+    {"id": "doc-002", "name": "Architecture Decision Record - MCP Auth.md", "folder": "/engineering", "size": "18 KB", "modified": "2026-07-12", "owner": "colin@acme.com"}
+  ],
+  "count": 1
+}</pre></div>
+                    Found 1 result: <strong>Architecture Decision Record - MCP Auth.md</strong> in /engineering, last modified July 12.
+                </div>
+            </div>
+
+            <div class="msg user">
+                <div class="msg-label">You</div>
+                <div class="msg-bubble">Show me today's auth metrics</div>
+            </div>
+            <div class="msg bot">
+                <div class="msg-label">Agent &middot; Analytics :3003</div>
+                <div class="msg-bubble">
+                    <div class="info-section"><pre>{
+  "summary": {
+    "users_today": 1247,
+    "auth_attempts": 8934,
+    "success_rate": "98.7%",
+    "latency": "243ms",
+    "dcr_this_week": 23
+  },
+  "recent_events": [
+    {"timestamp": "2026-07-13T09:12:00Z", "event": "dcr_registration", "actor": "Calendar MCP Server", "result": "success"},
+    {"timestamp": "2026-07-13T09:15:00Z", "event": "user_auth", "actor": "colin@acme.com", "result": "success"},
+    {"timestamp": "2026-07-13T09:20:00Z", "event": "token_exchange", "actor": "Documents MCP Server", "result": "denied"}
+  ]
+}</pre></div>
+                    1,247 active users today with 98.7% MFA success rate. 23 DCR registrations this week. Latency is 243ms avg.
+                </div>
+            </div>
+            {% endif %}
 
             {% if registrations %}
             {% for id, reg in registrations.items() %}
