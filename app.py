@@ -175,6 +175,35 @@ def decode_jwt_unverified(token: str) -> dict:
 
 # --- Routes ---
 
+@app.route("/status")
+def status_endpoint():
+    """JSON status of all MCP servers — no auth required."""
+    import time
+    results = {}
+    for sid, server in SERVERS.items():
+        port = server["mcp_port"]
+        try:
+            r = requests.get(f"http://localhost:{port}/health", timeout=2)
+            results[sid] = r.json()
+        except Exception:
+            results[sid] = {"status": "unreachable", "port": port}
+    return results
+
+
+@app.route("/debug")
+def debug_page():
+    """Debug page showing live server status and troubleshooting commands."""
+    server_status = {}
+    for sid, server in SERVERS.items():
+        port = server["mcp_port"]
+        try:
+            r = requests.get(f"http://localhost:{port}/health", timeout=2)
+            server_status[sid] = r.json()
+        except Exception:
+            server_status[sid] = {"status": "unreachable", "port": port}
+    return render_template_string(DEBUG_TEMPLATE, servers=SERVERS, server_status=server_status)
+
+
 @app.route("/")
 def dashboard():
     return render_template_string(TEMPLATE, servers=SERVERS, registrations=registrations, base_url=BASE_URL)
@@ -450,6 +479,10 @@ CONFIG_TEMPLATE = """<!DOCTYPE html>
                 <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 Settings
             </a>
+            <a href="/debug">
+                <svg viewBox="0 0 24 24"><path d="M20 8h-2.81a5.985 5.985 0 00-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
+                Debug
+            </a>
         </div>
     </div>
     <div class="main">
@@ -599,6 +632,10 @@ TEMPLATE = """<!DOCTYPE html>
             <a href="/config">
                 <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 Settings
+            </a>
+            <a href="/debug">
+                <svg viewBox="0 0 24 24"><path d="M20 8h-2.81a5.985 5.985 0 00-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
+                Debug
             </a>
         </div>
         <div class="server-list">
@@ -816,6 +853,158 @@ function askQuestion(btn) {
     }
 }
 </script>
+</body>
+</html>"""
+
+DEBUG_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug - MCP Agent Portal</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'CiscoSans', -apple-system, system-ui, sans-serif; background: #f5f6f7; color: #1b2733; min-height: 100vh; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #1b2733; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a3a4a; }
+        .sidebar-brand h2 { font-size: 0.9rem; color: #fff; font-weight: 600; }
+        .sidebar-brand span { font-size: 0.7rem; color: #7b8fa3; }
+        .sidebar-nav { padding: 0.75rem 0.75rem; flex: 1; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 6px; color: #b0bec5; text-decoration: none; font-size: 0.82rem; margin-bottom: 0.2rem; transition: all 0.15s; }
+        .sidebar-nav a:hover { background: #2a3a4a; color: #fff; }
+        .sidebar-nav a.active { background: #049fd9; color: #fff; }
+        .sidebar-nav a svg { width: 16px; height: 16px; fill: currentColor; }
+        .main { flex: 1; padding: 2rem 2.5rem; overflow-y: auto; }
+        h1 { font-size: 1.5rem; font-weight: 600; color: #1b2733; margin-bottom: 0.25rem; }
+        .subtitle { color: #5a6872; margin-bottom: 2rem; font-size: 0.85rem; }
+        .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; color: #5a6872; margin-bottom: 0.75rem; margin-top: 1.5rem; font-weight: 600; }
+        .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 8px; padding: 1.25rem; margin-bottom: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .card h3 { font-size: 0.9rem; margin-bottom: 0.5rem; color: #1b2733; font-weight: 600; }
+        .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+        .status-card { background: #fff; border: 1px solid #e0e5e9; border-radius: 8px; padding: 1rem; text-align: center; }
+        .status-card .icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+        .status-card .name { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .status-card .port { font-size: 0.7rem; color: #7b8fa3; font-family: 'SF Mono', monospace; margin-bottom: 0.4rem; }
+        .status-card .badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 10px; font-size: 0.68rem; font-weight: 600; }
+        .badge-ok { background: #e8f5e9; color: #2e7d32; }
+        .badge-fail { background: #ffeef0; color: #c62828; }
+        .badge-warn { background: #fff8e1; color: #f57f17; }
+        pre { background: #f7f9fb; border: 1px solid #e0e5e9; border-radius: 6px; padding: 0.85rem; font-size: 0.75rem; color: #1b2733; overflow-x: auto; white-space: pre-wrap; font-family: 'SF Mono', monospace; margin: 0.5rem 0; }
+        .cmd-label { font-size: 0.68rem; color: #049fd9; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        .detail-row { display: flex; justify-content: space-between; font-size: 0.78rem; padding: 0.3rem 0; border-bottom: 1px solid #f5f6f7; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-row .label { color: #5a6872; }
+        .detail-row .value { color: #1b2733; font-family: 'SF Mono', monospace; font-size: 0.72rem; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>MCP Agent Portal</h2>
+            <span>Duo SSO + DCR Demo</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                Chat
+            </a>
+            <a href="/config">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                Settings
+            </a>
+            <a href="/debug" class="active">
+                <svg viewBox="0 0 24 24"><path d="M20 8h-2.81a5.985 5.985 0 00-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
+                Debug
+            </a>
+        </div>
+    </div>
+    <div class="main">
+        <h1>Debug</h1>
+        <p class="subtitle">Live server status, troubleshooting commands, and test runner.</p>
+
+        <div class="section-title">Server Status (live)</div>
+        <div class="status-grid">
+            {% for id, server in servers.items() %}
+            <div class="status-card">
+                <div class="icon">{{ server.icon }}</div>
+                <div class="name">{{ server.name.replace(' MCP Server', '') }}</div>
+                <div class="port">:{{ server.mcp_port }}</div>
+                {% if server_status[id].status == 'ok' %}
+                    <span class="badge badge-ok">Running</span>
+                    {% if not server_status[id].get('issuer_configured', False) %}
+                        <br><span class="badge badge-warn" style="margin-top:0.3rem;">No issuer</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge badge-fail">Unreachable</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% for id, status in server_status.items() %}
+        {% if status.status == 'ok' %}
+        <div class="card" style="padding:0.75rem 1rem;">
+            <div class="detail-row"><span class="label">{{ servers[id].icon }} {{ servers[id].name }}</span><span class="value">:{{ status.port }}</span></div>
+            <div class="detail-row"><span class="label">Issuer configured</span><span class="value">{{ 'Yes' if status.get('issuer_configured') else 'No' }}</span></div>
+            <div class="detail-row"><span class="label">Uptime</span><span class="value">{{ status.get('uptime_seconds', 0) }}s</span></div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        <div class="section-title">Preflight Check</div>
+        <div class="card">
+            <h3>Validate config &amp; ports before starting</h3>
+            <pre>python3 servers.py --check</pre>
+        </div>
+
+        <div class="section-title">Run Tests</div>
+        <div class="card">
+            <h3>Automated test suite (requires servers running)</h3>
+            <pre>.venv/bin/pytest tests/ -v</pre>
+            <div class="cmd-label">What it checks</div>
+            <div class="detail-row"><span class="label">/health endpoints</span><span class="value">All 3 servers respond with status JSON</span></div>
+            <div class="detail-row"><span class="label">Auth gate</span><span class="value">/mcp returns 401 without token</span></div>
+            <div class="detail-row"><span class="label">RFC 9728 metadata</span><span class="value">/.well-known/oauth-protected-resource returns issuer</span></div>
+            <div class="detail-row"><span class="label">Portal /status</span><span class="value">Reports all servers reachable</span></div>
+            <div class="detail-row"><span class="label">--check flag</span><span class="value">Preflight validates config and port availability</span></div>
+        </div>
+
+        <div class="section-title">Quick Stack Check</div>
+        <div class="card">
+            <h3>One-command verification (curl-based)</h3>
+            <pre>./check.sh</pre>
+        </div>
+
+        <div class="section-title">Common Commands</div>
+        <div class="card">
+            <div class="cmd-label">Start MCP Servers</div>
+            <pre>.venv/bin/python3 servers.py --all</pre>
+            <div class="cmd-label">Start Portal</div>
+            <pre>.venv/bin/python3 app.py</pre>
+            <div class="cmd-label">Restart Everything</div>
+            <pre>lsof -ti:3001,3002,3003,8080 | xargs kill -9
+.venv/bin/python3 servers.py --all &amp;
+.venv/bin/python3 app.py</pre>
+            <div class="cmd-label">Check Individual Server</div>
+            <pre>curl http://localhost:3001/health | python3 -m json.tool
+curl http://localhost:3002/health | python3 -m json.tool
+curl http://localhost:3003/health | python3 -m json.tool</pre>
+            <div class="cmd-label">Check Resource Metadata</div>
+            <pre>curl http://localhost:3001/.well-known/oauth-protected-resource | python3 -m json.tool</pre>
+            <div class="cmd-label">Kill All Demo Processes</div>
+            <pre>lsof -ti:3001,3002,3003,8080 | xargs kill -9</pre>
+        </div>
+
+        <div class="section-title">Troubleshooting</div>
+        <div class="card">
+            <div class="detail-row"><span class="label">Servers not starting</span><span class="value">Run python3 servers.py --check to verify config/ports</span></div>
+            <div class="detail-row"><span class="label">DCR fails (example.com)</span><span class="value">config.json issuers not set — edit before starting servers</span></div>
+            <div class="detail-row"><span class="label">Port already in use</span><span class="value">lsof -ti:3001 | xargs kill -9</span></div>
+            <div class="detail-row"><span class="label">Token rejected</span><span class="value">Check issuer matches Duo SSO integration IKEY</span></div>
+            <div class="detail-row"><span class="label">Redirect URI mismatch</span><span class="value">Add callback URIs in Duo Admin (see Settings page)</span></div>
+        </div>
+    </div>
+</div>
 </body>
 </html>"""
 

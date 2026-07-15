@@ -28,10 +28,14 @@ import multiprocessing
 from dataclasses import dataclass
 from pathlib import Path
 
+import time
+
 import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.auth.provider import TokenVerifier, AccessToken
+
+_start_time = time.time()
 
 # --- Config ---
 CONFIG_PATH = Path(__file__).parent / "config.json"
@@ -124,6 +128,18 @@ def create_server(server_id: str) -> FastMCP:
         auth=auth_settings,
         token_verifier=DuoTokenVerifier(),
     )
+
+    # --- Health endpoint (no auth required) ---
+    @mcp.custom_route("/health", methods=["GET"])
+    async def health(request):
+        from starlette.responses import JSONResponse
+        return JSONResponse({
+            "status": "ok",
+            "server": config["name"],
+            "port": port,
+            "issuer_configured": bool(issuer and issuer != "https://example.com"),
+            "uptime_seconds": round(time.time() - _start_time),
+        })
 
     # --- Register tools based on server type ---
     if server_id == "calendar":
@@ -321,10 +337,35 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run MCP servers with Duo SSO auth")
     parser.add_argument("--server", choices=SERVERS.keys(), help="Run a single server")
     parser.add_argument("--all", action="store_true", help="Run all 3 servers")
+    parser.add_argument("--check", action="store_true", help="Validate config and port availability, then exit")
     parser.add_argument("--port", type=int, help="Override port (single server only)")
     args = parser.parse_args()
 
     cfg = load_config()
+
+    if args.check:
+        import socket
+        print("\n  Preflight check")
+        print("  " + "=" * 40)
+        all_ok = True
+        for sid, sconf in SERVERS.items():
+            issuer = get_issuer(sid)
+            port = sconf["port"]
+            issuer_ok = bool(issuer and issuer != "https://example.com")
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            port_free = sock.connect_ex(("127.0.0.1", port)) != 0
+            sock.close()
+            status = "OK" if (issuer_ok and port_free) else "FAIL"
+            if not issuer_ok or not port_free:
+                all_ok = False
+            print(f"  {sconf['name']:25s} :{port}  issuer={'YES' if issuer_ok else 'NO ':3s}  port={'free' if port_free else 'BUSY'}  [{status}]")
+        print("  " + "=" * 40)
+        if all_ok:
+            print("  All checks passed. Ready to start.\n")
+        else:
+            print("  Fix issues above before starting.\n")
+        sys.exit(0 if all_ok else 1)
+
     any_configured = any(cfg.get(s, {}).get("issuer") for s in SERVERS)
     if not any_configured and not os.environ.get("DUO_SSO_ISSUER"):
         print("\n  WARNING: No issuers configured!")
