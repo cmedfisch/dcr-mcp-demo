@@ -1,0 +1,29 @@
+name: Cardex
+options:
+  bundleIdPrefix: com.medfisch
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+    INFOPLIST_KEY_CFBundleDisplayName: "Cardex"
+targets:
+  Cardex:
+    type: application
+    platform: iOS
+    sources:
+      - Cardex
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        PRODUCT_BUNDLE_IDENTIFIER: com.medfisch.Cardex
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_NSCameraUsageDescription: "Cardex needs camera access to photograph cars you spot"
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Cardex can tag where you spotted each car"
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Cardex can import car photos from your library"

@@ -1,0 +1,531 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04018257CB6DA9F0269BF178 /* AchievementListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9D9AEC068B902E23538988 /* AchievementListView.swift */; };
+		07429B14E21F134D43DF239A /* RarityBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883DBEF06CB857B820018C95 /* RarityBadge.swift */; };
+		0A623572B181051E7AA960BA /* car_catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = EDBF282A256413542E474F5B /* car_catalog.json */; };
+		1304868046684043CF6253FD /* Color+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A1C5D3A52F1149F486FDD1B /* Color+Theme.swift */; };
+		14DA07244BC7980B895F8CDF /* CardexFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726D085A653C1A501C4CCC9B /* CardexFilterSheet.swift */; };
+		16B4418921ADB390415655BC /* Achievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EA23FA8181ACE5E2DCEC7F /* Achievement.swift */; };
+		2284FB3C580DEFCC45605EBD /* SpotFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2879390BFB223BD4A25B75 /* SpotFlowView.swift */; };
+		2F0631B4D837B6C41A08D2D5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BF9242A830101452FA3829B0 /* Assets.xcassets */; };
+		37BD08EAA935CA6FC94D55AA /* Car.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96DF929DE7E8A7AFE38F4F5C /* Car.swift */; };
+		3CCBE29001DB9348EECEB4F0 /* Spot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33D10130B988324B9754E175 /* Spot.swift */; };
+		3F0AB4610A9962C36087F029 /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F11EBB060FC75D76E206EF /* Player.swift */; };
+		54A95C8634FE4ECA07B1AABB /* CardexGridItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB1207572C8FD2286EE73F3 /* CardexGridItem.swift */; };
+		5AD16BCB2F8860395D11E573 /* CarDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A57F5FC5F3198269D657031 /* CarDetailView.swift */; };
+		5E9EE9304D66E52735F27C98 /* RarityCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525D09E3787E7A4EAC8FE93 /* RarityCalculator.swift */; };
+		64365493EFCF48FFB1A17FB8 /* XPEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72F3498F81AA4962F6CFF5F /* XPEngine.swift */; };
+		7E3C634C559F91272522BD29 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCE445BE2C411508E9446682 /* ContentView.swift */; };
+		7EBC27B3C350F4C2F0E18C8D /* SpotConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3622DA515DB7DF2081FD9F5C /* SpotConfirmView.swift */; };
+		876976A5AF9222C282ABFBD5 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B5D1A24BF26A997E08B8F47 /* HapticManager.swift */; };
+		8F870329AE06EA8475A2AA20 /* AchievementDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56CEE65B8A5462B1EED5ED18 /* AchievementDefinition.swift */; };
+		92C3E155DECEB0FF1AF0C3A3 /* PhotoStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 056FD104C255730D0A7B4EDB /* PhotoStorageService.swift */; };
+		940A7A2559FDF27A6FE1A9CA /* CardexApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0797EC925C036F3EF6499AC2 /* CardexApp.swift */; };
+		9FAD6EA93A5E856613BE4CBB /* StatsGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA386901DE1E3C17B3ED765F /* StatsGridView.swift */; };
+		AD341D655A7A09CD3B15A612 /* SearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C0C60E6AB8709EA0E64DB8 /* SearchBar.swift */; };
+		AE6FD3ED5A5296944E0C7069 /* CarCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B190F43F7694FC30B5473D9 /* CarCatalogService.swift */; };
+		B27C7FC8BCE26F16E75AB368 /* CardexView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC3D3221A79A9CF061B90F0 /* CardexView.swift */; };
+		B35F5EBD6D0694AE239B2A2F /* RarityTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E86DC3389186B3D11959EA5 /* RarityTier.swift */; };
+		B60A9D89A56B656EBF475E09 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 906E5D229B8594B4679B5B55 /* GlassCard.swift */; };
+		BC3DD003ACB5AC5D78BF349F /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D86B14BC880D48D98125F4 /* CameraView.swift */; };
+		C5F51AFEE7954A7F7D7ABDF2 /* PhotoReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87E24D3B30C1BCE6F3216183 /* PhotoReviewView.swift */; };
+		C82AE18B32DB056081092F75 /* PreviewSampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1814AC826F072AD1B9AB74 /* PreviewSampleData.swift */; };
+		CC03E182C2060C5E7A23F731 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05CD1EFDEE59D7B7F60BCBE9 /* ProfileView.swift */; };
+		CF20509550A8C251B835FBD8 /* Image+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8423A2FF974D882BA6A95A56 /* Image+Extensions.swift */; };
+		E55F1738244ED783182116BC /* LevelProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE249C94A2D76546A3D6C42F /* LevelProgressBar.swift */; };
+		F50AB9CFEEC6A35494B7D876 /* CarSilhouetteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD4DC26D86ACB4138CC62BF /* CarSilhouetteView.swift */; };
+		FF5BF24327AF87ACB0E6D206 /* CarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0EBF698A5E6EEC69AF3FE31 /* CarPickerView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		056FD104C255730D0A7B4EDB /* PhotoStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoStorageService.swift; sourceTree = "<group>"; };
+		05CD1EFDEE59D7B7F60BCBE9 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		0797EC925C036F3EF6499AC2 /* CardexApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardexApp.swift; sourceTree = "<group>"; };
+		0B5D1A24BF26A997E08B8F47 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
+		0E9D9AEC068B902E23538988 /* AchievementListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementListView.swift; sourceTree = "<group>"; };
+		2AC3D3221A79A9CF061B90F0 /* CardexView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardexView.swift; sourceTree = "<group>"; };
+		2E86DC3389186B3D11959EA5 /* RarityTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RarityTier.swift; sourceTree = "<group>"; };
+		33D10130B988324B9754E175 /* Spot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spot.swift; sourceTree = "<group>"; };
+		3622DA515DB7DF2081FD9F5C /* SpotConfirmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotConfirmView.swift; sourceTree = "<group>"; };
+		36D86B14BC880D48D98125F4 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		44EA23FA8181ACE5E2DCEC7F /* Achievement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievement.swift; sourceTree = "<group>"; };
+		4A57F5FC5F3198269D657031 /* CarDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarDetailView.swift; sourceTree = "<group>"; };
+		56CEE65B8A5462B1EED5ED18 /* AchievementDefinition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDefinition.swift; sourceTree = "<group>"; };
+		5DD4DC26D86ACB4138CC62BF /* CarSilhouetteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarSilhouetteView.swift; sourceTree = "<group>"; };
+		6A1C5D3A52F1149F486FDD1B /* Color+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Theme.swift"; sourceTree = "<group>"; };
+		6B1814AC826F072AD1B9AB74 /* PreviewSampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSampleData.swift; sourceTree = "<group>"; };
+		726D085A653C1A501C4CCC9B /* CardexFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardexFilterSheet.swift; sourceTree = "<group>"; };
+		80C0C60E6AB8709EA0E64DB8 /* SearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchBar.swift; sourceTree = "<group>"; };
+		8423A2FF974D882BA6A95A56 /* Image+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+Extensions.swift"; sourceTree = "<group>"; };
+		87E24D3B30C1BCE6F3216183 /* PhotoReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewView.swift; sourceTree = "<group>"; };
+		883DBEF06CB857B820018C95 /* RarityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RarityBadge.swift; sourceTree = "<group>"; };
+		8B190F43F7694FC30B5473D9 /* CarCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarCatalogService.swift; sourceTree = "<group>"; };
+		906E5D229B8594B4679B5B55 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
+		96DF929DE7E8A7AFE38F4F5C /* Car.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Car.swift; sourceTree = "<group>"; };
+		BF2879390BFB223BD4A25B75 /* SpotFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotFlowView.swift; sourceTree = "<group>"; };
+		BF9242A830101452FA3829B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CCE445BE2C411508E9446682 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D72F3498F81AA4962F6CFF5F /* XPEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPEngine.swift; sourceTree = "<group>"; };
+		DAD4D6D9E42F2F720FAA9E7B /* Cardex.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Cardex.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0EBF698A5E6EEC69AF3FE31 /* CarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPickerView.swift; sourceTree = "<group>"; };
+		E2F11EBB060FC75D76E206EF /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
+		EA386901DE1E3C17B3ED765F /* StatsGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsGridView.swift; sourceTree = "<group>"; };
+		EDBF282A256413542E474F5B /* car_catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = car_catalog.json; sourceTree = "<group>"; };
+		EE249C94A2D76546A3D6C42F /* LevelProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelProgressBar.swift; sourceTree = "<group>"; };
+		F525D09E3787E7A4EAC8FE93 /* RarityCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RarityCalculator.swift; sourceTree = "<group>"; };
+		FFB1207572C8FD2286EE73F3 /* CardexGridItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardexGridItem.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		107E393AD29B109931053357 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				EDBF282A256413542E474F5B /* car_catalog.json */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		322D4809C169B13FA4924387 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				44EA23FA8181ACE5E2DCEC7F /* Achievement.swift */,
+				56CEE65B8A5462B1EED5ED18 /* AchievementDefinition.swift */,
+				96DF929DE7E8A7AFE38F4F5C /* Car.swift */,
+				E2F11EBB060FC75D76E206EF /* Player.swift */,
+				2E86DC3389186B3D11959EA5 /* RarityTier.swift */,
+				33D10130B988324B9754E175 /* Spot.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		3E5B85623501B43D9CB599BC /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				8B190F43F7694FC30B5473D9 /* CarCatalogService.swift */,
+				056FD104C255730D0A7B4EDB /* PhotoStorageService.swift */,
+				F525D09E3787E7A4EAC8FE93 /* RarityCalculator.swift */,
+				D72F3498F81AA4962F6CFF5F /* XPEngine.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		42A2CA3F958A461A458C9279 /* Spot */ = {
+			isa = PBXGroup;
+			children = (
+				36D86B14BC880D48D98125F4 /* CameraView.swift */,
+				E0EBF698A5E6EEC69AF3FE31 /* CarPickerView.swift */,
+				87E24D3B30C1BCE6F3216183 /* PhotoReviewView.swift */,
+				3622DA515DB7DF2081FD9F5C /* SpotConfirmView.swift */,
+				BF2879390BFB223BD4A25B75 /* SpotFlowView.swift */,
+			);
+			path = Spot;
+			sourceTree = "<group>";
+		};
+		5215DDB2348BFB676E12AD92 /* Cardex */ = {
+			isa = PBXGroup;
+			children = (
+				0797EC925C036F3EF6499AC2 /* CardexApp.swift */,
+				322D4809C169B13FA4924387 /* Models */,
+				9E845A88C7234F1446A77C80 /* Preview Content */,
+				6F6749768D02582F5852EBAD /* Resources */,
+				3E5B85623501B43D9CB599BC /* Services */,
+				A739AF64055B2C8884489722 /* Utilities */,
+				F295F490DA608A8A805123EE /* Views */,
+			);
+			path = Cardex;
+			sourceTree = "<group>";
+		};
+		6925328C53480FF2714C3448 /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				0E9D9AEC068B902E23538988 /* AchievementListView.swift */,
+				EE249C94A2D76546A3D6C42F /* LevelProgressBar.swift */,
+				05CD1EFDEE59D7B7F60BCBE9 /* ProfileView.swift */,
+				EA386901DE1E3C17B3ED765F /* StatsGridView.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+		6F6749768D02582F5852EBAD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BF9242A830101452FA3829B0 /* Assets.xcassets */,
+				107E393AD29B109931053357 /* Data */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		78E96F31A159F4CB4EB3C261 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DAD4D6D9E42F2F720FAA9E7B /* Cardex.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9E845A88C7234F1446A77C80 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				6B1814AC826F072AD1B9AB74 /* PreviewSampleData.swift */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		A739AF64055B2C8884489722 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				6A1C5D3A52F1149F486FDD1B /* Color+Theme.swift */,
+				0B5D1A24BF26A997E08B8F47 /* HapticManager.swift */,
+				8423A2FF974D882BA6A95A56 /* Image+Extensions.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		B380F0CE69442098EE4C0F39 = {
+			isa = PBXGroup;
+			children = (
+				5215DDB2348BFB676E12AD92 /* Cardex */,
+				78E96F31A159F4CB4EB3C261 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B4A3AFAFBB5E5E47A3C3D2EB /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				5DD4DC26D86ACB4138CC62BF /* CarSilhouetteView.swift */,
+				906E5D229B8594B4679B5B55 /* GlassCard.swift */,
+				883DBEF06CB857B820018C95 /* RarityBadge.swift */,
+				80C0C60E6AB8709EA0E64DB8 /* SearchBar.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		B7DEE93291E2D16708547D5A /* Cardex */ = {
+			isa = PBXGroup;
+			children = (
+				4A57F5FC5F3198269D657031 /* CarDetailView.swift */,
+				726D085A653C1A501C4CCC9B /* CardexFilterSheet.swift */,
+				FFB1207572C8FD2286EE73F3 /* CardexGridItem.swift */,
+				2AC3D3221A79A9CF061B90F0 /* CardexView.swift */,
+			);
+			path = Cardex;
+			sourceTree = "<group>";
+		};
+		F295F490DA608A8A805123EE /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				CCE445BE2C411508E9446682 /* ContentView.swift */,
+				B7DEE93291E2D16708547D5A /* Cardex */,
+				B4A3AFAFBB5E5E47A3C3D2EB /* Components */,
+				6925328C53480FF2714C3448 /* Profile */,
+				42A2CA3F958A461A458C9279 /* Spot */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		92E33E7160024F04FE98CF49 /* Cardex */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D814CDDAEF3E1144970B61B /* Build configuration list for PBXNativeTarget "Cardex" */;
+			buildPhases = (
+				906E2E7A9AFE6A5EF34CCDBA /* Sources */,
+				48C80A0C4A98EF489280C774 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Cardex;
+			packageProductDependencies = (
+			);
+			productName = Cardex;
+			productReference = DAD4D6D9E42F2F720FAA9E7B /* Cardex.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CFB67B332802FA6AA57DE789 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = B43A5E5378BD3E20CA6E3838 /* Build configuration list for PBXProject "Cardex" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B380F0CE69442098EE4C0F39;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 78E96F31A159F4CB4EB3C261 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				92E33E7160024F04FE98CF49 /* Cardex */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		48C80A0C4A98EF489280C774 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F0631B4D837B6C41A08D2D5 /* Assets.xcassets in Resources */,
+				0A623572B181051E7AA960BA /* car_catalog.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		906E2E7A9AFE6A5EF34CCDBA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				16B4418921ADB390415655BC /* Achievement.swift in Sources */,
+				8F870329AE06EA8475A2AA20 /* AchievementDefinition.swift in Sources */,
+				04018257CB6DA9F0269BF178 /* AchievementListView.swift in Sources */,
+				BC3DD003ACB5AC5D78BF349F /* CameraView.swift in Sources */,
+				37BD08EAA935CA6FC94D55AA /* Car.swift in Sources */,
+				AE6FD3ED5A5296944E0C7069 /* CarCatalogService.swift in Sources */,
+				5AD16BCB2F8860395D11E573 /* CarDetailView.swift in Sources */,
+				FF5BF24327AF87ACB0E6D206 /* CarPickerView.swift in Sources */,
+				F50AB9CFEEC6A35494B7D876 /* CarSilhouetteView.swift in Sources */,
+				940A7A2559FDF27A6FE1A9CA /* CardexApp.swift in Sources */,
+				14DA07244BC7980B895F8CDF /* CardexFilterSheet.swift in Sources */,
+				54A95C8634FE4ECA07B1AABB /* CardexGridItem.swift in Sources */,
+				B27C7FC8BCE26F16E75AB368 /* CardexView.swift in Sources */,
+				1304868046684043CF6253FD /* Color+Theme.swift in Sources */,
+				7E3C634C559F91272522BD29 /* ContentView.swift in Sources */,
+				B60A9D89A56B656EBF475E09 /* GlassCard.swift in Sources */,
+				876976A5AF9222C282ABFBD5 /* HapticManager.swift in Sources */,
+				CF20509550A8C251B835FBD8 /* Image+Extensions.swift in Sources */,
+				E55F1738244ED783182116BC /* LevelProgressBar.swift in Sources */,
+				C5F51AFEE7954A7F7D7ABDF2 /* PhotoReviewView.swift in Sources */,
+				92C3E155DECEB0FF1AF0C3A3 /* PhotoStorageService.swift in Sources */,
+				3F0AB4610A9962C36087F029 /* Player.swift in Sources */,
+				C82AE18B32DB056081092F75 /* PreviewSampleData.swift in Sources */,
+				CC03E182C2060C5E7A23F731 /* ProfileView.swift in Sources */,
+				07429B14E21F134D43DF239A /* RarityBadge.swift in Sources */,
+				5E9EE9304D66E52735F27C98 /* RarityCalculator.swift in Sources */,
+				B35F5EBD6D0694AE239B2A2F /* RarityTier.swift in Sources */,
+				AD341D655A7A09CD3B15A612 /* SearchBar.swift in Sources */,
+				3CCBE29001DB9348EECEB4F0 /* Spot.swift in Sources */,
+				7EBC27B3C350F4C2F0E18C8D /* SpotConfirmView.swift in Sources */,
+				2284FB3C580DEFCC45605EBD /* SpotFlowView.swift in Sources */,
+				9FAD6EA93A5E856613BE4CBB /* StatsGridView.swift in Sources */,
+				64365493EFCF48FFB1A17FB8 /* XPEngine.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2513593A7CC7D625D39ED4CB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Cardex;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		3282CE3747674FBB440AF3C7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Cardex;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		427EF1F83D7582571F2A2424 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cardex needs camera access to photograph cars you spot";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cardex can tag where you spotted each car";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cardex can import car photos from your library";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.medfisch.Cardex;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E39EB63B5F10E0806E724FCB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cardex needs camera access to photograph cars you spot";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cardex can tag where you spotted each car";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cardex can import car photos from your library";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.medfisch.Cardex;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1D814CDDAEF3E1144970B61B /* Build configuration list for PBXNativeTarget "Cardex" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E39EB63B5F10E0806E724FCB /* Debug */,
+				427EF1F83D7582571F2A2424 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B43A5E5378BD3E20CA6E3838 /* Build configuration list for PBXProject "Cardex" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2513593A7CC7D625D39ED4CB /* Debug */,
+				3282CE3747674FBB440AF3C7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CFB67B332802FA6AA57DE789 /* Project object */;
+}
